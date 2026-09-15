@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ training.title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4>{{ training.title }}</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:training_edit' training.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-header">Details</div>
+  <div class="card-body row text-center">
+    <div class="col-md-4"><strong>Date:</strong> {{ training.date }}</div>
+    <div class="col-md-4"><strong>Trainer:</strong> {{ training.trainer_name }}</div>
+    <div class="col-md-4"><strong>Duration (hrs):</strong> {{ training.duration_hours }}</div>
+    <div class="col-md-4"><strong>Portfolio:</strong> {{ training.portfolio.name }}</div>
+    <div class="col-md-4"><strong>Program:</strong> {{ training.program.name }}</div>
+    <div class="col-md-4"><strong>Target Audience:</strong> {{ training.target_audience|default:"—" }}</div>
+    <div class="col-md-4"><strong>Cost:</strong> {{ training.cost|floatformat:2 }}</div>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">Attendance Sheet ({{ training.attendees.count }})</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 text-center">
+      <thead><tr><th>Name</th><th>CNIC</th><th>Contact</th><th>Institution</th><th>Designation</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for a in training.attendees.all %}
+        <tr><td>{{ a.participant_name }}</td><td>{{ a.cnic }}</td><td>{{ a.contact_number }}</td><td>{{ a.institution_organization }}</td><td>{{ a.designation_title }}</td><td>{{ a.get_attendance_status_display }}</td></tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-3">No attendees recorded.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

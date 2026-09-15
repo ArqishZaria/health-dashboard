@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Budget Allocations{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4><i class="fa-solid fa-sack-dollar me-2"></i>Budget Allocations</h4>
+  <div class="page-subtitle">Managed via Django Admin for National Admins; shown here read-only.</div>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 text-center">
+      <thead><tr><th>Portfolio</th><th>Region</th><th>Fiscal Year</th><th>Allocated Amount</th><th>Notes</th></tr></thead>
+      <tbody>
+      {% for a in allocations %}
+        <tr>
+          <td>{{ a.portfolio.name }}</td>
+          <td>{{ a.region.name|default:"All Regions" }}</td>
+          <td>{{ a.fiscal_year }}</td>
+          <td>{{ a.allocated_amount|floatformat:2 }}</td>
+          <td>{{ a.notes|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No budget allocations configured yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

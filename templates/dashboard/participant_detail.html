@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ participant.full_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4>Participant Profile - {{ participant.participant_uid }}</h4>
+</div>
+<div class="card mb-3">
+  <div class="card-header">Demographics</div>
+  <div class="card-body row text-center">
+    <div class="col-md-4"><strong>Name:</strong> {{ participant.full_name }}</div>
+    <div class="col-md-4"><strong>Father/Husband:</strong> {{ participant.father_husband_name|default:"—" }}</div>
+    <div class="col-md-4"><strong>CNIC:</strong> {{ participant.cnic|default:"—" }}</div>
+    <div class="col-md-4"><strong>Gender:</strong> {{ participant.get_gender_display }}</div>
+    <div class="col-md-4"><strong>Age:</strong> {{ participant.age|default:"—" }}</div>
+    <div class="col-md-4"><strong>Contact:</strong> {{ participant.contact_number|default:"—" }}</div>
+    <div class="col-md-4"><strong>Region:</strong> {{ participant.region.name }}</div>
+    <div class="col-md-4"><strong>Local Council:</strong> {{ participant.local_council.name }}</div>
+    <div class="col-md-4"><strong>Venue:</strong> {{ participant.jamat_khana.name|default:"—" }}</div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Screening History</div>
+  <div class="card-body">
+    {% for s in screenings %}
+      <h6 class="text-center">{{ s.label }}</h6>
+      <table class="table table-sm mb-3 text-center">
+        <thead><tr><th>Date</th><th>Referred</th><th>Risk</th><th>Remarks</th></tr></thead>
+        <tbody>
+        {% for rec in s.records %}
+          <tr><td>{{ rec.screening_date }}</td><td>{{ rec.referred|yesno:"Yes,No" }}</td><td>{{ rec.get_risk_category_display }}</td><td>{{ rec.remarks|default:"—" }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% empty %}
+      <p class="text-muted text-center">No screening records for this participant.</p>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Case / Referral History</div>
+  <div class="card-body">
+    <table class="table table-sm mb-0 text-center">
+      <thead><tr><th>Case ID</th><th>Referral Date</th><th>Status</th><th>Priority</th></tr></thead>
+      <tbody>
+      {% for c in cases %}
+        <tr><td><a href="{% url 'dashboard:case_detail' c.pk %}">{{ c.case_id }}</a></td><td>{{ c.referral_date }}</td><td>{{ c.get_current_status_display }}</td><td>{{ c.get_priority_level_display }}</td></tr>
+      {% empty %}
+        <tr><td colspan="4" class="text-muted text-center">No cases on record.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

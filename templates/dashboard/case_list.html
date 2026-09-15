@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Cases{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4>Case Management</h4>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form class="row g-2 mb-3 justify-content-center" method="get">
+      <div class="col-auto">
+        <select name="status" class="form-select">
+          <option value="">All Statuses</option>
+          {% for val, label in status_choices %}
+            <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto"><button class="btn btn-outline-secondary">Filter</button></div>
+    </form>
+    <div class="table-responsive">
+    <table class="table table-hover align-middle text-center">
+      <thead><tr><th>Case ID</th><th>Participant</th><th>Referral Date</th><th>Priority</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for c in cases %}
+        <tr>
+          <td><a href="{% url 'dashboard:case_detail' c.pk %}">{{ c.case_id }}</a></td>
+          <td>{{ c.participant.full_name }}</td>
+          <td>{{ c.referral_date }}</td>
+          <td>{{ c.get_priority_level_display }}</td>
+          <td><span class="badge bg-info text-dark">{{ c.get_current_status_display }}</span></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No cases found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% include "dashboard/_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

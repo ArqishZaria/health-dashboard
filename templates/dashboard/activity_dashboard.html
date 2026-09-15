@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Activity Reporting Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4><i class="fa-solid fa-calendar-check me-2"></i>Activity Reporting Dashboard</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:activity_list' %}" class="btn btn-outline-secondary btn-sm">View List</a>
+  </div>
+</div>
+
+{% include "dashboard/_filter_activity.html" %}
+
+<div class="row g-3">
+  <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Total Activities</div><div class="metric-value">{{ total }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card warn"><div class="metric-label">Total Beneficiaries</div><div class="metric-value">{{ beneficiaries }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Avg. Beneficiaries / Activity</div><div class="metric-value">{{ avg_beneficiaries }}</div></div></div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card good">
+      <div class="metric-label">Budget Utilization</div>
+      {% if budget.percent is not None %}
+        <div class="metric-value">{{ budget.percent }}%</div>
+        <div class="metric-sub">{{ budget.utilized|floatformat:0 }} / {{ budget.allocated|floatformat:0 }}</div>
+      {% else %}
+        <div class="metric-value">—</div><div class="metric-sub">No budget allocated</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Trends</div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header">Monthly Trend (Last 12 Months)</div><div class="card-body"><canvas id="monthChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Yearly Trend</div><div class="card-body"><canvas id="yearChart" height="220"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Region, Local Council &amp; Jamatkhana Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Region-wise</div><div class="card-body"><canvas id="regionChart" height="230"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Top 5 Local Councils</div><div class="card-body"><canvas id="localChart" height="230"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Top 5 Jamatkhanas</div><div class="card-body"><canvas id="jkChart" height="230"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Portfolio &amp; Program-wise Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Portfolio-wise</div><div class="card-body"><canvas id="portfolioChart" height="230"></canvas></div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Top Programs</div><div class="card-body"><canvas id="progChart" height="230"></canvas></div></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+new Chart(document.getElementById('monthChart'), { type: 'line', data: { labels: {{ month_labels|safe }}, datasets: [{ label: 'Activities', data: {{ month_values|safe }}, borderColor: '#e8a33d', backgroundColor: '#e8a33d22', tension: 0.3, fill: true }] }, options: { scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('yearChart'), { type: 'bar', data: { labels: {{ year_labels|safe }}, datasets: [{ label: 'Activities', data: {{ year_values|safe }}, backgroundColor: '#0b5d63' }] }, options: { plugins: { legend: { display:false } }, scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('regionChart'), { type: 'doughnut', data: { labels: {{ region_labels|safe }}, datasets: [{ data: {{ region_values|safe }}, backgroundColor: ['#0b5d63','#12878f','#e8a33d','#37474f','#8e1b1b','#607d8b','#b5651d'] }] } });
+new Chart(document.getElementById('localChart'), { type: 'bar', data: { labels: {{ local_labels|safe }}, datasets: [{ label: 'Activities', data: {{ local_values|safe }}, backgroundColor: '#12878f' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('jkChart'), { type: 'bar', data: { labels: {{ jk_labels|safe }}, datasets: [{ label: 'Activities', data: {{ jk_values|safe }}, backgroundColor: '#e8a33d' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('portfolioChart'), { type: 'pie', data: { labels: {{ portfolio_labels|safe }}, datasets: [{ data: {{ portfolio_values|safe }}, backgroundColor: ['#0b5d63','#12878f','#e8a33d','#37474f','#8e1b1b'] }] } });
+new Chart(document.getElementById('progChart'), { type: 'bar', data: { labels: {{ program_labels|safe }}, datasets: [{ label: 'Activities', data: {{ program_values|safe }}, backgroundColor: '#12878f' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+</script>
+{% endblock %}

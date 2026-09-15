@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ case.case_id }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4>{{ case.case_id }} - {{ case.participant.full_name }}</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:case_edit' case.pk %}" class="btn btn-outline-primary btn-sm">Edit Case</a>
+  </div>
+</div>
+<div class="card mb-3">
+  <div class="card-body row text-center">
+    <div class="col-md-3"><strong>Referral Date:</strong> {{ case.referral_date }}</div>
+    <div class="col-md-3"><strong>Source:</strong> {{ case.referral_source }}</div>
+    <div class="col-md-3"><strong>Priority:</strong> {{ case.get_priority_level_display }}</div>
+    <div class="col-md-3"><strong>Status:</strong> {{ case.get_current_status_display }}</div>
+    <div class="col-md-6"><strong>Reason:</strong> {{ case.reason_for_referral }}</div>
+    <div class="col-md-6"><strong>Facility/Doctor:</strong> {{ case.referral_facility_doctor|default:"—" }}</div>
+    <div class="col-md-6"><strong>Case Manager:</strong> {{ case.assigned_case_manager|default:"Unassigned" }}</div>
+    <div class="col-md-6"><strong>Closed:</strong> {{ case.closure_status|yesno:"Yes,No" }}</div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Follow-ups</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 text-center">
+      <thead><tr><th>Date</th><th>Consultation</th><th>Investigation</th><th>Treatment</th><th>Next Reminder</th></tr></thead>
+      <tbody>
+      {% for f in follow_ups %}
+        <tr><td>{{ f.follow_up_date }}</td><td>{{ f.consultation_details|default:"—" }}</td><td>{{ f.investigation_results|default:"—" }}</td><td>{{ f.treatment_initiated|default:"—" }}</td><td>{{ f.next_reminder_date|default:"—" }}</td></tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-3">No follow-ups recorded yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Add Follow-up</div>
+  <div class="card-body">
+    <form method="post" action="{% url 'dashboard:case_follow_up_add' case.pk %}">
+      {% csrf_token %}
+      <div class="row g-3">
+      {% for field in follow_up_form %}
+        <div class="col-md-6">
+          <label class="form-label">{{ field.label }}</label>
+          {{ field }}
+        </div>
+      {% endfor %}
+      </div>
+      <div class="text-center">
+        <button class="btn btn-primary mt-3">Add Follow-up</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

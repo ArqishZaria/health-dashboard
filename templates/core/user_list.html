@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Manage Users{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h4><i class="fa-solid fa-users-gear me-2"></i>Manage Users</h4>
+  <div class="page-actions">
+    <a href="{% url 'core:user_add' %}" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add User</a>
+  </div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form class="row g-2 mb-3" method="get">
+      <div class="col-auto"><input type="text" name="q" class="form-control" placeholder="Search username" value="{{ request.GET.q }}"></div>
+      <div class="col-auto">
+        <select name="role" class="form-select">
+          <option value="">All Roles</option>
+          {% for val, label in role_choices %}
+            <option value="{{ val }}" {% if request.GET.role == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto"><button class="btn btn-outline-secondary">Filter</button></div>
+    </form>
+    <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Scope</th><th>Active</th><th></th></tr></thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td>{{ u.username }}</td>
+          <td>{{ u.get_full_name }}</td>
+          <td><span class="badge badge-role text-dark">{{ u.get_role_display }}</span></td>
+          <td>{{ u.scope_label }}</td>
+          <td>{% if u.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+          <td class="text-end">
+            <a href="{% url 'core:user_edit' u.pk %}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen"></i></a>
+            <a href="{% url 'core:user_delete' u.pk %}" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No users found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% include "dashboard/_pagination.html" with page_obj=page_obj %}
+  </div>
+</div>
+{% endblock %}

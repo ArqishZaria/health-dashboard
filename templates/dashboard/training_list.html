@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Trainings{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4 class="mb-0">Training Programs</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-arrow-up me-1"></i>Bulk Upload</a>
+    <a href="{% url 'dashboard:training_export' %}" class="btn btn-outline-success btn-sm">Export CSV</a>
+  </div>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 text-center">
+      <thead><tr><th>Title</th><th>Date</th><th>Region</th><th>Trainer</th><th>Participants</th><th></th></tr></thead>
+      <tbody>
+      {% for t in trainings %}
+        <tr>
+          <td><a href="{% url 'dashboard:training_detail' t.pk %}">{{ t.title }}</a></td>
+          <td>{{ t.date }}</td><td>{{ t.region.name }}</td><td>{{ t.trainer_name }}</td><td>{{ t.number_of_participants }}</td>
+          <td><a href="{% url 'dashboard:training_edit' t.pk %}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen"></i></a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No trainings recorded.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "dashboard/_pagination.html" %}
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Case Management Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4><i class="fa-solid fa-notes-medical me-2"></i>Case Management &amp; Referrals Dashboard</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:case_list' %}" class="btn btn-outline-secondary btn-sm">View List</a>
+  </div>
+</div>
+
+{% include "dashboard/_filter_case.html" %}
+
+<div class="row g-3">
+  <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Total Cases</div><div class="metric-value">{{ total_cases }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card danger"><div class="metric-label">Open / Follow-up</div><div class="metric-value">{{ open_cases }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card good"><div class="metric-label">Closed</div><div class="metric-value">{{ closed_cases }}</div><div class="metric-sub">{{ closure_rate }}% closure rate</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Avg. Days to Closure</div><div class="metric-value">{% if avg_days_to_closure is not None %}{{ avg_days_to_closure }}{% else %}—{% endif %}</div></div></div>
+</div>
+
+<div class="section-title">Trends</div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header">Monthly Trend</div><div class="card-body"><canvas id="monthChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Yearly Trend</div><div class="card-body"><canvas id="yearChart" height="220"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Status, Priority &amp; Region-wise Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">By Status</div><div class="card-body"><canvas id="statusChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">By Priority</div><div class="card-body"><canvas id="prioChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Region-wise</div><div class="card-body"><canvas id="regionChart" height="220"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Local Council &amp; Jamatkhana Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Top 5 Local Councils</div><div class="card-body"><canvas id="localChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Top 5 Jamatkhanas</div><div class="card-body"><canvas id="jkChart" height="220"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Referral Sources &amp; Case Manager Workload</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Top Referral Sources</div><div class="card-body"><canvas id="sourceChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Cases by Case Manager</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 text-center">
+          <thead><tr><th>Case Manager</th><th>Assigned Cases</th></tr></thead>
+          <tbody>
+          {% for m in by_manager %}
+            <tr><td>{{ m.assigned_case_manager__username }}</td><td>{{ m.c }}</td></tr>
+          {% empty %}
+            <tr><td colspan="2" class="text-center text-muted py-3">No cases assigned yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+new Chart(document.getElementById('monthChart'), { type: 'line', data: { labels: {{ month_labels|safe }}, datasets: [{ label: 'Cases', data: {{ month_values|safe }}, borderColor: '#8e1b1b', backgroundColor: '#8e1b1b22', tension: .3, fill: true }] }, options: { scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('yearChart'), { type: 'bar', data: { labels: {{ year_labels|safe }}, datasets: [{ label: 'Cases', data: {{ year_values|safe }}, backgroundColor: '#0b5d63' }] }, options: { plugins: { legend: { display:false } }, scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('statusChart'), { type: 'doughnut', data: { labels: {{ status_labels|safe }}, datasets: [{ data: {{ status_values|safe }}, backgroundColor: ['#0b5d63','#e8a33d','#8e1b1b','#607d8b'] }] } });
+new Chart(document.getElementById('prioChart'), { type: 'bar', data: { labels: {{ priority_labels|safe }}, datasets: [{ label: 'Cases', data: {{ priority_values|safe }}, backgroundColor: '#12878f' }] }, options: { plugins: { legend: { display:false } }, scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('regionChart'), { type: 'pie', data: { labels: {{ region_labels|safe }}, datasets: [{ data: {{ region_values|safe }}, backgroundColor: ['#0b5d63','#12878f','#e8a33d','#37474f','#8e1b1b'] }] } });
+new Chart(document.getElementById('localChart'), { type: 'bar', data: { labels: {{ local_labels|safe }}, datasets: [{ label: 'Cases', data: {{ local_values|safe }}, backgroundColor: '#12878f' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('jkChart'), { type: 'bar', data: { labels: {{ jk_labels|safe }}, datasets: [{ label: 'Cases', data: {{ jk_values|safe }}, backgroundColor: '#e8a33d' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('sourceChart'), { type: 'bar', data: { labels: {{ source_labels|safe }}, datasets: [{ label: 'Cases', data: {{ source_values|safe }}, backgroundColor: '#e8a33d' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+</script>
+{% endblock %}

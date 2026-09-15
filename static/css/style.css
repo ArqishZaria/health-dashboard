@@ -1,0 +1,55 @@
+:root {
+  --brand-primary: #0b5d63;
+  --brand-secondary: #12878f;
+  --brand-accent: #e8a33d;
+  --brand-light: #f4f9f9;
+}
+body { background-color: var(--brand-light); font-family: "Segoe UI", Roboto, Arial, sans-serif; }
+.app-navbar { background: linear-gradient(90deg, var(--brand-primary), var(--brand-secondary)); }
+.navbar .nav-link { font-weight: 500; }
+.stat-card {
+  border: none; border-radius: 14px; color: #fff;
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+  box-shadow: 0 6px 18px rgba(11,93,99,0.18);
+}
+.stat-card.accent { background: linear-gradient(135deg, #b5651d, var(--brand-accent)); }
+.stat-card.neutral { background: linear-gradient(135deg, #37474f, #607d8b); }
+.stat-card.danger { background: linear-gradient(135deg, #8e1b1b, #c0392b); }
+.stat-card h2 { font-weight: 700; }
+.card { border: none; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+.card-header { background-color: #fff; border-bottom: 1px solid #eef1f1; font-weight: 600; color: var(--brand-primary); }
+.table thead { background-color: #eef6f6; }
+.btn-primary { background-color: var(--brand-primary); border-color: var(--brand-primary); }
+.btn-primary:hover { background-color: var(--brand-secondary); border-color: var(--brand-secondary); }
+.badge-role { background-color: var(--brand-accent); }
+.auth-wrapper { min-height: 100vh; display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, var(--brand-primary), #16323a);}
+.auth-card { max-width: 420px; width: 100%; border-radius: 16px; }
+
+/* --- Metric / KPI cards used across dashboards --- */
+.metric-card { border: none; border-radius: 12px; padding: 1rem 1.25rem; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.06); height: 100%; }
+.metric-card .metric-label { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: #6c757d; font-weight: 600; }
+.metric-card .metric-value { font-size: 1.9rem; font-weight: 700; color: var(--brand-primary); line-height: 1.2; }
+.metric-card .metric-sub { font-size: .82rem; color: #6c757d; }
+.metric-card.warn .metric-value { color: #b5651d; }
+.metric-card.danger .metric-value { color: #8e1b1b; }
+.metric-card.good .metric-value { color: #1b8e4f; }
+.section-title { font-weight: 700; color: var(--brand-primary); margin-top: 1.75rem; margin-bottom: .75rem; border-left: 4px solid var(--brand-accent); padding-left: .6rem; }
+.progress { border-radius: 8px; }
+
+/* --- Page headers: heading centered, actions/back button flow beneath it --- */
+.page-header { text-align: center; margin-bottom: 1rem; }
+.page-header .back-btn { margin-bottom: .5rem; }
+.page-header h3, .page-header h4 { margin-bottom: .25rem; }
+.page-header .page-subtitle { color: #6c757d; font-size: .9rem; margin-bottom: .5rem; }
+.page-header .page-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+
+/* --- Filter card: dropdowns hidden by geography cascade collapse cleanly --- */
+.filter-card select option[hidden] { display: none; }
+
+/* --- Print / export-to-PDF (browser Print dialog) --- */
+@media print {
+  .app-navbar, .no-print, .btn, form { display: none !important; }
+  main { padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; }
+  body { background: #fff !important; }
+}

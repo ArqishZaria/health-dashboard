@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Activity Reports{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4>Activity Reports</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-arrow-up me-1"></i>Bulk Upload</a>
+    <a href="{% url 'dashboard:activity_export' %}" class="btn btn-outline-success btn-sm">Export CSV</a>
+  </div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form class="row g-2 mb-3 justify-content-center" method="get">
+      <div class="col-auto"><input type="text" name="q" class="form-control" placeholder="Search activity/venue" value="{{ request.GET.q }}"></div>
+      <div class="col-auto"><button class="btn btn-outline-secondary">Search</button></div>
+    </form>
+    <div class="table-responsive">
+    <table class="table table-hover align-middle text-center">
+      <thead><tr><th>Date</th><th>Activity</th><th>Region</th><th>Portfolio</th><th>Program</th><th>Beneficiaries</th><th>Cost</th><th></th></tr></thead>
+      <tbody>
+      {% for a in activities %}
+        <tr>
+          <td>{{ a.date }}</td>
+          <td>{{ a.name_of_activity }}</td>
+          <td>{{ a.region.name }}</td>
+          <td>{{ a.portfolio.name }}</td>
+          <td>{{ a.program.name }}</td>
+          <td>{{ a.number_of_beneficiaries }}</td>
+          <td>{{ a.cost|floatformat:2 }}</td>
+          <td class="text-end">
+            <a href="{% url 'dashboard:activity_edit' a.pk %}" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-pen"></i></a>
+            <a href="{% url 'dashboard:activity_delete' a.pk %}" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash"></i></a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No activity reports found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% include "dashboard/_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

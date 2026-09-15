@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Upload Detail{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4>Upload Detail - {{ batch.get_form_type_display }}</h4>
+</div>
+<div class="row g-3 mb-3 justify-content-center">
+  <div class="col-md-3"><div class="card stat-card p-3 text-center"><small>Total Rows</small><h2>{{ batch.total_rows }}</h2></div></div>
+  <div class="col-md-3"><div class="card stat-card p-3 text-center" style="background:linear-gradient(135deg,#1b8e4f,#27ae60);"><small>Imported</small><h2>{{ batch.success_count }}</h2></div></div>
+  <div class="col-md-3"><div class="card stat-card danger p-3 text-center"><small>Errors</small><h2>{{ batch.error_count }}</h2></div></div>
+</div>
+{% if batch.error_log %}
+<div class="card">
+  <div class="card-header">Row-level Errors</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 text-center">
+      <thead><tr><th>Row</th><th>Error</th></tr></thead>
+      <tbody>
+      {% for err in batch.error_log %}
+        <tr><td>{{ err.row }}</td><td class="text-danger">{{ err.error }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-success text-center">All rows imported successfully with no errors.</div>
+{% endif %}
+{% endblock %}

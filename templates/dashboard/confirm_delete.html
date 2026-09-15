@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Confirm Delete{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4 class="text-danger">Confirm Delete</h4>
+</div>
+<div class="card col-lg-6 mx-auto">
+  <div class="card-body text-center">
+    <p>Are you sure you want to delete <strong>{{ object }}</strong>?</p>
+    <form method="post">
+      {% csrf_token %}
+      <button class="btn btn-danger">Delete</button>
+      <a href="{{ request.META.HTTP_REFERER }}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

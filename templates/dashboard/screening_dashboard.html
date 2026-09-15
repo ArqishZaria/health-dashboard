@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Health Screening Programs Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4><i class="fa-solid fa-stethoscope me-2"></i>Health Screening Programs Dashboard</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:participant_list' %}" class="btn btn-outline-secondary btn-sm">Participants</a>
+  </div>
+</div>
+
+{% include "dashboard/_filter_screening.html" %}
+
+<div class="row g-3">
+  <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Total Screened</div><div class="metric-value">{{ total }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card warn"><div class="metric-label">Total Referred</div><div class="metric-value">{{ referred_total }}</div><div class="metric-sub">{{ overall_referral_rate }}% referral rate</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card danger"><div class="metric-label">High-Risk Cases</div><div class="metric-value">{{ high_risk_total }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Screening Types</div><div class="metric-value">{{ rows|length }}</div><div class="metric-sub">Distinct screening programs</div></div></div>
+</div>
+
+<div class="section-title">Trends</div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header">Monthly Trend (Last 12 Months)</div><div class="card-body"><canvas id="monthChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Yearly Trend</div><div class="card-body"><canvas id="yearChart" height="220"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Region, Local Council &amp; Jamatkhana Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Region-wise Screenings</div><div class="card-body"><canvas id="regionChart" height="230"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Top 5 Local Councils</div><div class="card-body"><canvas id="localChart" height="230"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Top 5 Jamatkhanas</div><div class="card-body"><canvas id="jkChart" height="230"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Program-wise Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-12">
+    <div class="card"><div class="card-header">Screenings by Program</div><div class="card-body"><canvas id="progChart" height="230"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Age &amp; Gender Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header">Screened Participants by Age Group &amp; Gender (Two-way View)</div><div class="card-body"><canvas id="ageChart" height="260"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Gender Distribution</div><div class="card-body"><canvas id="genderChart" height="260"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Screening Modules — Detail &amp; Referral Rates</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 text-center">
+      <thead><tr><th>Program</th><th>Total</th><th>Referred</th><th>Referral Rate</th><th>High Risk</th><th class="no-print"></th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.label }}</td>
+          <td>{{ r.count }}</td>
+          <td>{{ r.referred }}</td>
+          <td>
+            <div class="d-flex align-items-center justify-content-center gap-2">
+              <div class="progress flex-grow-1" style="height:6px; max-width:100px;"><div class="progress-bar bg-warning" style="width:{{ r.referral_rate }}%"></div></div>
+              <span>{{ r.referral_rate }}%</span>
+            </div>
+          </td>
+          <td>{{ r.high_risk }}</td>
+          <td class="text-end no-print">
+            <a href="{% url 'dashboard:screening_list' r.key %}" class="btn btn-sm btn-outline-primary">View Records</a>
+            <a href="{% url 'dashboard:screening_export' r.key %}" class="btn btn-sm btn-outline-success">Export</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+new Chart(document.getElementById('monthChart'), { type: 'line', data: { labels: {{ month_labels|safe }}, datasets: [{ label: 'Screenings', data: {{ month_values|safe }}, borderColor: '#12878f', backgroundColor: '#12878f22', tension: .3, fill: true }] }, options: { scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('yearChart'), { type: 'bar', data: { labels: {{ year_labels|safe }}, datasets: [{ label: 'Screenings', data: {{ year_values|safe }}, backgroundColor: '#0b5d63' }] }, options: { plugins: { legend: { display:false } }, scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('regionChart'), { type: 'doughnut', data: { labels: {{ region_labels|safe }}, datasets: [{ data: {{ region_values|safe }}, backgroundColor: ['#0b5d63','#12878f','#e8a33d','#37474f','#8e1b1b','#607d8b'] }] } });
+new Chart(document.getElementById('localChart'), { type: 'bar', data: { labels: {{ local_labels|safe }}, datasets: [{ label: 'Screenings', data: {{ local_values|safe }}, backgroundColor: '#12878f' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('jkChart'), { type: 'bar', data: { labels: {{ jk_labels|safe }}, datasets: [{ label: 'Screenings', data: {{ jk_values|safe }}, backgroundColor: '#e8a33d' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('progChart'), { type: 'bar', data: { labels: {{ labels|safe }}, datasets: [{ label: 'Screened', data: {{ values|safe }}, backgroundColor: '#12878f' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+
+const ageLabels = {{ age_labels|safe }};
+const maleRaw = {{ male_series|safe }};
+const femaleRaw = {{ female_series|safe }};
+new Chart(document.getElementById('ageChart'), {
+  type: 'bar',
+  data: {
+    labels: ageLabels,
+    datasets: [
+      { label: 'Male', data: maleRaw.map(v => -v), backgroundColor: '#0b5d63' },
+      { label: 'Female', data: femaleRaw, backgroundColor: '#e8a33d' },
+    ]
+  },
+  options: {
+    indexAxis: 'y',
+    scales: { x: { ticks: { callback: v => Math.abs(v) }, stacked: true }, y: { stacked: true } },
+    plugins: { tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${Math.abs(ctx.raw)}` } } }
+  }
+});
+new Chart(document.getElementById('genderChart'), { type: 'pie', data: { labels: {{ gender_labels|safe }}, datasets: [{ data: {{ gender_values|safe }}, backgroundColor: ['#0b5d63','#e8a33d','#607d8b'] }] } });
+</script>
+{% endblock %}

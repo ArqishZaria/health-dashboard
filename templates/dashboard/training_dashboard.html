@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Training Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4><i class="fa-solid fa-chalkboard-user me-2"></i>Training &amp; Capacity Building Dashboard</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:training_list' %}" class="btn btn-outline-secondary btn-sm">View List</a>
+  </div>
+</div>
+
+{% include "dashboard/_filter_training.html" %}
+
+<div class="row g-3">
+  <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Total Trainings</div><div class="metric-value">{{ total_trainings }}</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card warn"><div class="metric-label">Total Participants</div><div class="metric-value">{{ total_participants }}</div><div class="metric-sub">Avg {{ avg_participants }} / training</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card"><div class="metric-label">Avg. Duration</div><div class="metric-value">{{ avg_duration }} hrs</div></div></div>
+  <div class="col-6 col-md-3"><div class="metric-card good"><div class="metric-label">Attendance Rate</div><div class="metric-value">{{ attendance_rate }}%</div><div class="metric-sub">Present vs total marked</div></div></div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-6 col-md-3">
+    <div class="metric-card good">
+      <div class="metric-label">Budget Utilization</div>
+      {% if budget.percent is not None %}
+        <div class="metric-value">{{ budget.percent }}%</div>
+        <div class="metric-sub">{{ budget.utilized|floatformat:0 }} / {{ budget.allocated|floatformat:0 }}</div>
+      {% else %}
+        <div class="metric-value">—</div><div class="metric-sub">No budget allocated</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Trends</div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header">Monthly Trend</div><div class="card-body"><canvas id="monthChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Yearly Trend</div><div class="card-body"><canvas id="yearChart" height="220"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Region, Local Council &amp; Jamatkhana Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Region-wise</div><div class="card-body"><canvas id="regionChart" height="230"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Top 5 Local Councils</div><div class="card-body"><canvas id="localChart" height="230"></canvas></div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Top 5 Jamatkhanas</div><div class="card-body"><canvas id="jkChart" height="230"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Portfolio &amp; Program-wise Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Portfolio-wise</div><div class="card-body"><canvas id="portfolioChart" height="230"></canvas></div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Top Programs</div><div class="card-body"><canvas id="progChart" height="230"></canvas></div></div>
+  </div>
+</div>
+
+<div class="section-title">Training Statistics</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header">Attendance Status Breakdown</div><div class="card-body"><canvas id="attChart" height="220"></canvas></div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Top Trainers by Sessions Conducted</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 text-center">
+          <thead><tr><th>Trainer</th><th>Sessions</th></tr></thead>
+          <tbody>
+          {% for t in top_trainers %}
+            <tr><td>{{ t.trainer_name|default:"Unspecified" }}</td><td>{{ t.c }}</td></tr>
+          {% empty %}
+            <tr><td colspan="2" class="text-center text-muted py-3">No trainings recorded yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+new Chart(document.getElementById('monthChart'), { type: 'line', data: { labels: {{ month_labels|safe }}, datasets: [{ label: 'Trainings', data: {{ month_values|safe }}, borderColor: '#607d8b', backgroundColor: '#607d8b22', tension: .3, fill: true }] }, options: { scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('yearChart'), { type: 'bar', data: { labels: {{ year_labels|safe }}, datasets: [{ label: 'Trainings', data: {{ year_values|safe }}, backgroundColor: '#0b5d63' }] }, options: { plugins: { legend: { display:false } }, scales: { y: { beginAtZero: true } } } });
+new Chart(document.getElementById('regionChart'), { type: 'doughnut', data: { labels: {{ region_labels|safe }}, datasets: [{ data: {{ region_values|safe }}, backgroundColor: ['#0b5d63','#12878f','#e8a33d','#37474f','#8e1b1b'] }] } });
+new Chart(document.getElementById('localChart'), { type: 'bar', data: { labels: {{ local_labels|safe }}, datasets: [{ label: 'Trainings', data: {{ local_values|safe }}, backgroundColor: '#12878f' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('jkChart'), { type: 'bar', data: { labels: {{ jk_labels|safe }}, datasets: [{ label: 'Trainings', data: {{ jk_values|safe }}, backgroundColor: '#e8a33d' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('portfolioChart'), { type: 'pie', data: { labels: {{ portfolio_labels|safe }}, datasets: [{ data: {{ portfolio_values|safe }}, backgroundColor: ['#0b5d63','#12878f','#e8a33d'] }] } });
+new Chart(document.getElementById('progChart'), { type: 'bar', data: { labels: {{ program_labels|safe }}, datasets: [{ label: 'Trainings', data: {{ program_values|safe }}, backgroundColor: '#12878f' }] }, options: { indexAxis: 'y', plugins: { legend: { display:false } }, scales: { x: { beginAtZero: true } } } });
+new Chart(document.getElementById('attChart'), { type: 'pie', data: { labels: {{ attendance_labels|safe }}, datasets: [{ data: {{ attendance_values|safe }}, backgroundColor: ['#1b8e4f','#8e1b1b','#e8a33d'] }] } });
+</script>
+{% endblock %}

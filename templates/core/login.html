@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Login - Health Programs DMS{% endblock %}
+{% block content %}
+<div class="auth-wrapper">
+  <div class="card auth-card shadow-lg p-4">
+    <div class="text-center mb-3">
+      <i class="fa-solid fa-heart-pulse fa-2x" style="color:var(--brand-primary)"></i>
+      <h4 class="mt-2 mb-0">Integrated Health Programs</h4>
+      <small class="text-muted">Data Management System</small>
+    </div>
+    {% if form.errors %}
+      <div class="alert alert-danger py-2">Invalid username or password.</div>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label">Username</label>
+        {{ form.username }}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        {{ form.password }}
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Sign In</button>
+      <input type="hidden" name="next" value="{{ next }}">
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+<script>
+(function() {
+  var regionSel = document.getElementById('geo_region');
+  var lcSel = document.getElementById('geo_local_council');
+  var jkSel = document.getElementById('geo_jamat_khana');
+  if (!regionSel || !lcSel || !jkSel) return;
+
+  function filterLocalCouncils() {
+    var regionVal = regionSel.value;
+    Array.prototype.forEach.call(lcSel.options, function(opt) {
+      if (!opt.value) { opt.hidden = false; return; }
+      opt.hidden = !!regionVal && opt.dataset.region !== regionVal;
+    });
+    var current = lcSel.selectedOptions && lcSel.selectedOptions[0];
+    if (current && current.hidden) {
+      lcSel.value = '';
+    }
+  }
+
+  function filterJamatKhanas() {
+    var lcVal = lcSel.value;
+    Array.prototype.forEach.call(jkSel.options, function(opt) {
+      if (!opt.value) { opt.hidden = false; return; }
+      opt.hidden = !!lcVal && opt.dataset.lc !== lcVal;
+    });
+    var current = jkSel.selectedOptions && jkSel.selectedOptions[0];
+    if (current && current.hidden) {
+      jkSel.value = '';
+    }
+  }
+
+  regionSel.addEventListener('change', function() {
+    filterLocalCouncils();
+    filterJamatKhanas();
+  });
+  lcSel.addEventListener('change', filterJamatKhanas);
+
+  // Apply immediately on page load so a pre-selected Region (e.g. from a
+  // bookmarked/shared filtered URL) instantly narrows the other two
+  // dropdowns without waiting for a user interaction.
+  filterLocalCouncils();
+  filterJamatKhanas();
+})();
+</script>

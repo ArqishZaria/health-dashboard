@@ -1,0 +1,3 @@
+<button type="button" onclick="if (document.referrer && document.referrer.indexOf(window.location.host) !== -1) { history.back(); } else { window.location.href='{% url "dashboard:overview" %}'; }" class="btn btn-outline-secondary btn-sm back-btn no-print">
+  <i class="fa-solid fa-arrow-left me-1"></i>Back
+</button>

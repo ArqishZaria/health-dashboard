@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Upload History{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4>Upload History</h4>
+  <div class="page-actions">
+    <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm">New Upload</a>
+  </div>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 text-center">
+      <thead><tr><th>Form Type</th><th>Uploaded By</th><th>Date</th><th>Status</th><th>Rows</th><th>Success</th><th>Errors</th><th></th></tr></thead>
+      <tbody>
+      {% for b in batches %}
+        <tr>
+          <td>{{ b.get_form_type_display }}</td>
+          <td>{{ b.created_by }}</td>
+          <td>{{ b.created_at|date:"Y-m-d H:i" }}</td>
+          <td>
+            {% if b.status == "COMPLETED" %}<span class="badge bg-success">{{ b.get_status_display }}</span>
+            {% elif b.status == "COMPLETED_WITH_ERRORS" %}<span class="badge bg-warning text-dark">{{ b.get_status_display }}</span>
+            {% elif b.status == "FAILED" %}<span class="badge bg-danger">{{ b.get_status_display }}</span>
+            {% else %}<span class="badge bg-secondary">{{ b.get_status_display }}</span>{% endif %}
+          </td>
+          <td>{{ b.total_rows }}</td>
+          <td>{{ b.success_count }}</td>
+          <td>{{ b.error_count }}</td>
+          <td><a href="{% url 'dashboard:upload_detail' b.pk %}" class="btn btn-sm btn-outline-primary">Details</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No uploads yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% include "dashboard/_pagination.html" %}
+{% endblock %}

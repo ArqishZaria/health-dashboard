@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Overview Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h3>Overview Dashboard</h3>
+  <div class="page-subtitle">Scope: {{ user_scope_label }} &middot; Consolidated across Activity Reporting, Screening, Training and Case Management</div>
+</div>
+
+<div class="section-title">Jump to Module Dashboards</div>
+<div class="row g-3 no-print module-jump">
+  <div class="col-6 col-md-3"><a href="{% url 'dashboard:activity_dashboard' %}" class="btn btn-outline-primary w-100"><i class="fa-solid fa-calendar-check d-block mb-1"></i>Activity Reporting</a></div>
+  <div class="col-6 col-md-3"><a href="{% url 'dashboard:screening_dashboard' %}" class="btn btn-outline-primary w-100"><i class="fa-solid fa-stethoscope d-block mb-1"></i>HB Screening Programs</a></div>
+  <div class="col-6 col-md-3"><a href="{% url 'dashboard:training_dashboard' %}" class="btn btn-outline-primary w-100"><i class="fa-solid fa-chalkboard-user d-block mb-1"></i>Training &amp; Capacity</a></div>
+  <div class="col-6 col-md-3"><a href="{% url 'dashboard:case_dashboard' %}" class="btn btn-outline-primary w-100"><i class="fa-solid fa-notes-medical d-block mb-1"></i>Case Management</a></div>
+</div>
+
+{% include "dashboard/_filter_overview.html" %}
+
+<div class="section-title">Key Performance Indicators</div>
+<div class="row g-3">
+  <div class="col-6 col-md-3">
+    <div class="metric-card"><div class="metric-label">Total Beneficiaries</div><div class="metric-value">{{ total_beneficiaries }}</div><div class="metric-sub">{{ total_activities }} activities conducted</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card warn"><div class="metric-label">Total Screenings</div><div class="metric-value">{{ total_screenings }}</div><div class="metric-sub">{{ total_referrals }} referred &middot; {{ overall_referral_rate }}% referral rate</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card"><div class="metric-label">Trainings Conducted</div><div class="metric-value">{{ total_trainings }}</div><div class="metric-sub">{{ total_training_participants }} participants trained</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card danger"><div class="metric-label">Cases Under Follow-up</div><div class="metric-value">{{ cases_open }}</div><div class="metric-sub">{{ cases_closed }} closed &middot; {{ case_closure_rate }}% closure rate</div></div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-6 col-md-3">
+    <div class="metric-card good">
+      <div class="metric-label">Budget Utilization</div>
+      {% if budget.percent is not None %}
+        <div class="metric-value">{{ budget.percent }}%</div>
+        <div class="metric-sub">{{ budget.utilized|floatformat:0 }} / {{ budget.allocated|floatformat:0 }} utilized</div>
+        <div class="progress mt-1" style="height:6px;"><div class="progress-bar bg-success" style="width:{{ budget.percent }}%"></div></div>
+      {% else %}
+        <div class="metric-value">—</div>
+        <div class="metric-sub">No budget allocated yet.</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card"><div class="metric-label">High-Risk Screenings</div><div class="metric-value">{{ total_high_risk }}</div><div class="metric-sub">Flagged across all screening programs</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card"><div class="metric-label">Avg. Beneficiaries / Activity</div><div class="metric-value">{{ avg_beneficiaries_per_activity }}</div><div class="metric-sub">Across {{ total_activities }} activities</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card"><div class="metric-label">Total Cases Logged</div><div class="metric-value">{{ cases_total }}</div><div class="metric-sub">{{ cases_closed }} closed / {{ cases_open }} active</div></div>
+  </div>
+</div>
+
+<div class="section-title">Monthly &amp; Yearly Trends (All Modules)</div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header">12-Month Trend — Activities, Screenings, Trainings, Cases</div>
+      <div class="card-body"><canvas id="comboMonthChart" height="230"></canvas></div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Yearly Trend</div>
+      <div class="card-body"><canvas id="yearChart" height="230"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Region-wise Analysis (All Modules)</div>
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card"><div class="card-header">Top Regions by Total Activity</div><div class="card-body"><canvas id="regionChart" height="240"></canvas></div></div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Region-wise Breakdown</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 text-center">
+          <thead><tr><th>Region</th><th>Activities</th><th>Screenings</th><th>Trainings</th><th>Cases</th><th>Total</th></tr></thead>
+          <tbody>
+          {% for r in region_combo_rows %}
+            <tr><td>{{ r.region }}</td><td>{{ r.activities }}</td><td>{{ r.screenings }}</td><td>{{ r.trainings }}</td><td>{{ r.cases }}</td><td><strong>{{ r.total }}</strong></td></tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-3">No data yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Local Council &amp; Jamatkhana Analysis (Top 5 Each)</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Top 5 Local Councils</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 text-center">
+          <thead><tr><th>Local Council</th><th>Activities</th><th>Screenings</th><th>Trainings</th><th>Cases</th><th>Total</th></tr></thead>
+          <tbody>
+          {% for r in local_combo_rows %}
+            <tr><td>{{ r.local_council }}</td><td>{{ r.activities }}</td><td>{{ r.screenings }}</td><td>{{ r.trainings }}</td><td>{{ r.cases }}</td><td><strong>{{ r.total }}</strong></td></tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-3">No data yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Top 5 Jamatkhanas</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 text-center">
+          <thead><tr><th>Jamatkhana</th><th>Activities</th><th>Screenings</th><th>Trainings</th><th>Cases</th><th>Total</th></tr></thead>
+          <tbody>
+          {% for r in jk_combo_rows %}
+            <tr><td>{{ r.jamat_khana }}</td><td>{{ r.activities }}</td><td>{{ r.screenings }}</td><td>{{ r.trainings }}</td><td>{{ r.cases }}</td><td><strong>{{ r.total }}</strong></td></tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-3">No data yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Portfolio-wise Analysis</div>
+<div class="row g-3">
+  <div class="col-lg-12">
+    <div class="card">
+      <div class="card-header">Portfolio-wise Breakdown (Activities, Trainings, Screenings)</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 text-center">
+          <thead><tr><th>Portfolio</th><th>Activities</th><th>Trainings</th><th>Screenings</th><th>Total</th></tr></thead>
+          <tbody>
+          {% for p in portfolio_combo_rows %}
+            <tr><td>{{ p.portfolio }}</td><td>{{ p.activities }}</td><td>{{ p.trainings }}</td><td>{{ p.screenings }}</td><td><strong>{{ p.total }}</strong></td></tr>
+          {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-3">No data yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Age &amp; Gender Analysis (Screened Participants)</div>
+<div class="row g-3">
+  <div class="col-lg-12">
+    <div class="card"><div class="card-header">Participants by Age Group and Gender (Two-way / Pyramid View)</div>
+      <div class="card-body"><canvas id="ageGenderChart" height="260"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Screening Programs Summary &amp; Referral Rates</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table mb-0 text-center">
+      <thead><tr><th>Program</th><th>Total Screened</th><th>Referred</th><th>Referral Rate</th></tr></thead>
+      <tbody>
+      {% for row in screening_breakdown %}
+        <tr>
+          <td><a href="{% url 'dashboard:screening_list' row.key %}">{{ row.label }}</a></td>
+          <td>{{ row.count }}</td>
+          <td>{{ row.referred }}</td>
+          <td>
+            <div class="d-flex align-items-center justify-content-center gap-2">
+              <div class="progress flex-grow-1" style="height:6px; max-width:120px;"><div class="progress-bar bg-warning" style="width:{{ row.referral_rate }}%"></div></div>
+              <span>{{ row.referral_rate }}%</span>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+new Chart(document.getElementById('comboMonthChart'), {
+  type: 'line',
+  data: {
+    labels: {{ combo_month_labels|safe }},
+    datasets: [
+      { label: 'Activities', data: {{ combo_activity_values|safe }}, borderColor: '#0b5d63', backgroundColor: '#0b5d6322', tension: .3 },
+      { label: 'Screenings', data: {{ combo_screening_values|safe }}, borderColor: '#e8a33d', backgroundColor: '#e8a33d22', tension: .3 },
+      { label: 'Trainings', data: {{ combo_training_values|safe }}, borderColor: '#607d8b', backgroundColor: '#607d8b22', tension: .3 },
+      { label: 'Cases', data: {{ combo_case_values|safe }}, borderColor: '#8e1b1b', backgroundColor: '#8e1b1b22', tension: .3 },
+    ]
+  },
+  options: { interaction: { mode: 'index', intersect: false }, scales: { y: { beginAtZero: true } } }
+});
+new Chart(document.getElementById('yearChart'), {
+  type: 'bar',
+  data: { labels: {{ year_labels|safe }}, datasets: [
+    { label: 'Activities', data: {{ year_activity_values|safe }}, backgroundColor: '#0b5d63' },
+    { label: 'Trainings', data: {{ year_training_values|safe }}, backgroundColor: '#e8a33d' },
+  ]},
+  options: { scales: { y: { beginAtZero: true } } }
+});
+new Chart(document.getElementById('regionChart'), {
+  type: 'bar',
+  data: { labels: {{ region_labels|safe }}, datasets: [{ label: 'Total Records', data: {{ region_values|safe }}, backgroundColor: '#12878f' }] },
+  options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+});
+
+// Diverging (two-way / population-pyramid) age & gender chart: male mirrored negative.
+const ageLabels = {{ age_labels|safe }};
+const maleRaw = {{ male_series|safe }};
+const femaleRaw = {{ female_series|safe }};
+new Chart(document.getElementById('ageGenderChart'), {
+  type: 'bar',
+  data: {
+    labels: ageLabels,
+    datasets: [
+      { label: 'Male', data: maleRaw.map(v => -v), backgroundColor: '#0b5d63' },
+      { label: 'Female', data: femaleRaw, backgroundColor: '#e8a33d' },
+    ]
+  },
+  options: {
+    indexAxis: 'y',
+    scales: {
+      x: { ticks: { callback: v => Math.abs(v) }, stacked: true, grid: { color: '#e9edee' } },
+      y: { stacked: true }
+    },
+    plugins: {
+      tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${Math.abs(ctx.raw)}` } }
+    }
+  }
+});
+</script>
+{% endblock %}

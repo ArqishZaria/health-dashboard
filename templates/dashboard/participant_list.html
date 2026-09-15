@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Participants{% endblock %}
+{% block content %}
+<div class="page-header">
+  {% include "dashboard/_back_button.html" %}
+  <h4><i class="fa-solid fa-users me-2"></i>Participants</h4>
+</div>
+<div class="card">
+  <div class="card-body">
+    <form class="row g-2 mb-3 justify-content-center" method="get">
+      <div class="col-auto"><input type="text" name="q" class="form-control" placeholder="Search name/CNIC/UID" value="{{ request.GET.q }}"></div>
+      <div class="col-auto"><button class="btn btn-outline-secondary">Search</button></div>
+    </form>
+    <div class="table-responsive">
+    <table class="table table-hover align-middle text-center">
+      <thead><tr><th>UID</th><th>Name</th><th>CNIC</th><th>Gender</th><th>Age</th><th>Region</th><th>Local Council</th></tr></thead>
+      <tbody>
+      {% for p in participants %}
+        <tr>
+          <td><a href="{% url 'dashboard:participant_detail' p.pk %}">{{ p.participant_uid }}</a></td>
+          <td>{{ p.full_name }}</td>
+          <td>{{ p.cnic|default:"—" }}</td>
+          <td>{{ p.get_gender_display }}</td>
+          <td>{{ p.age|default:"—" }}</td>
+          <td>{{ p.region.name }}</td>
+          <td>{{ p.local_council.name }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No participants found.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% include "dashboard/_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

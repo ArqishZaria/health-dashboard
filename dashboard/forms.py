@@ -11,16 +11,6 @@ class UploadForm(forms.ModelForm):
             "file": forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".xlsx,.xls,.csv"}),
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # MULTI_SHEET is assigned automatically when an uploaded workbook
-        # turns out to have more than one sheet - it's never something the
-        # uploader picks beforehand, so it's excluded from this dropdown.
-        self.fields["form_type"].choices = [
-            (value, label) for value, label in UploadBatch.FormType.choices
-            if value != UploadBatch.FormType.MULTI_SHEET
-        ]
-
     def clean_file(self):
         f = self.cleaned_data["file"]
         if not f.name.lower().endswith((".xlsx", ".xls", ".csv")):
@@ -28,7 +18,6 @@ class UploadForm(forms.ModelForm):
         if f.size > 10 * 1024 * 1024:
             raise forms.ValidationError("File too large (max 10 MB).")
         return f
-
 
 class ActivityReportForm(forms.ModelForm):
     class Meta:

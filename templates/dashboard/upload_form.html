@@ -18,8 +18,7 @@
           <div class="mb-3">
             <label class="form-label">Form Type</label>
             {{ form.form_type }}
-            <div class="form-text">Only used for a single-sheet file or CSV. A multi-sheet Excel workbook ignores
-            this and matches each sheet to its form type automatically by its tab name instead.</div>
+            <div class="form-text">Select the form type that matches the sheet you're uploading — the file's first sheet is imported against it.</div>
           </div>
           <div class="mb-3 text-center">
             <a id="templateDownloadLink"
@@ -27,6 +26,11 @@
                data-template-base="{% url 'dashboard:upload_template' form_type='__FORMTYPE__' %}"
                class="btn btn-outline-primary btn-sm">
               <i class="fa-solid fa-file-arrow-down me-1"></i>Download Template for Selected Form Type
+            </a>
+          </div>
+          <div class="mb-3 text-center">
+            <a href="{% url 'dashboard:geography_reference' %}" class="btn btn-outline-secondary btn-sm">
+              <i class="fa-solid fa-map-location-dot me-1"></i>Download Region / Local Council / Jamatkhana Reference
             </a>
           </div>
           <div class="mb-3">
@@ -49,11 +53,12 @@
         <ul>
           <li>Always start from the "Download Template" button above for your chosen form type - the headers must
           match exactly for a row to import correctly. The template's "Instructions" sheet has the full details.</li>
-          <li><strong>Dates must be in YYYY-MM-DD format</strong> (e.g. 2026-03-05) - no other format is accepted.
+          <li><strong>Dates must be in DD-MM-YYYY format</strong> (e.g. 05-03-2026) - no other format is accepted.
           A row with a date in any other format, or an invalid calendar date, is rejected with an error rather than
           being guessed or defaulted.</li>
-          <li>Region, Local Council and Jamatkhana values are <strong>cross-checked against existing records only</strong>
-          - bulk upload never creates new geography. If a row references geography that doesn't exist yet, it won't be accepted.</li>
+          <li>Not sure how a Region, Local Council or Jamatkhana is spelled in the system? Download the
+          <strong>Region / Local Council / Jamatkhana Reference</strong>.</li>
+          <li>Region, Local Council and Jamatkhana values are <strong>cross-checked against existing records only</strong></li>
           <li>Unrecognised columns are preserved and stored against each record - nothing is silently dropped.</li>
           <li>Maximum file size: 10&nbsp;MB.</li>
         </ul>

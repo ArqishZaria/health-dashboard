@@ -355,8 +355,7 @@ class UploadBatch(AuditedModel):
         ELDERLY_NEUROLOGICAL_ASSESSMENT = "elderly_neurological_assessment", "Elderly Neurological Assessment"
         ADULT_HEALTH_SCREENING = "adult_health_screening", "Adult Health Screening"
         TRAINING_ATTENDANCE = "TRAINING_ATTENDANCE", "Training Attendance"
-        MULTI_SHEET = "MULTI_SHEET", "Multi-sheet (auto-detected per tab)"
-
+       
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
         PROCESSING = "PROCESSING", "Processing"

@@ -49,9 +49,10 @@ urlpatterns = [
     path("budget/", views.BudgetAllocationListView.as_view(), name="budget_list"),
     path("budget/add/", views.BudgetAllocationCreateView.as_view(), name="budget_add"),
 
-    # Bulk upload
     path("upload/", views.UploadCreateView.as_view(), name="upload_add"),
     path("upload/template/<str:form_type>/", views.DownloadUploadTemplateView.as_view(), name="upload_template"),
+    path("upload/geography-reference/", views.DownloadGeographyReferenceView.as_view(), name="geography_reference"),
     path("upload/history/", views.UploadListView.as_view(), name="upload_list"),
     path("upload/<int:pk>/", views.UploadDetailView.as_view(), name="upload_detail"),
 ]
+

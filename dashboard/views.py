@@ -20,7 +20,7 @@ from .forms import (
     UploadForm, ActivityReportForm, CaseRecordForm, CaseFollowUpForm,
     BudgetAllocationForm, TrainingProgramForm,
 )
-from .importers import process_upload_batch, build_upload_template
+from .importers import process_upload_batch, build_upload_template, build_geography_reference
 from .models import (
     ActivityReport, Participant, TrainingProgram, TrainingAttendance,
     CaseRecord, CaseFollowUp, UploadBatch, BudgetAllocation, SCREENING_MODELS,
@@ -1176,3 +1176,21 @@ class UploadDetailView(RoleRequiredMixin, DetailView):
     model = UploadBatch
     template_name = "dashboard/upload_detail.html"
     context_object_name = "batch"
+
+
+class DownloadGeographyReferenceView(RoleRequiredMixin, View):
+    """Live Region / Local Council / Jamatkhana reference sheet, generated
+    from the database at request time, scoped to the requesting user's
+    access. Sits alongside the per-form-type data template on the Bulk
+    Upload page so uploaders can copy exact geography spellings."""
+    allowed_roles = UPLOADER_ROLES
+
+    def get(self, request):
+        buf = build_geography_reference(request.user)
+        filename = f"geography_reference_{timezone.now():%Y%m%d}.xlsx"
+        response = HttpResponse(
+            buf.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response

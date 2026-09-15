@@ -48,27 +48,48 @@ def normalize_header(h):
 ALIASES = {
     "date": ["date", "date_of_screening", "date_of_examination", "date_of_assessment", "start", "screening_date"],
     "region": ["region"],
-    "local_council": ["local_council", "local", "council"],
-    "jamat_khana": ["jamat_khana", "jammat_khana", "jamatkhana", "venue_jamatkhana", "venue", "center"],
-    "full_name": ["full_name", "name", "participant_name"],
-    "father_husband_name": [
-        "father_s_name", "father_husband_name", "father_name",
-        "father_husband_name_", "father_spouse_name", "father_mother_self",
+
+    "local_council": ["local_council", "local", "council", "jurisdiction"],  # Mammogram uses "Jurisdiction"
+
+    "jamat_khana": [
+        "jamat_khana", "jammat_khana", "jamatkhana", "venue_jamatkhana", "venue", "center",
+        "jamat_khana_venue",      # Adolescent: "Jamat Khana/Venue"
+        "name_of_jamatkhana",     # Dass: "Name of JamatKhana"
     ],
+
+    "full_name": ["full_name", "name", "participant_name"],
+
+    "father_husband_name": [
+        "father_s_name", "father_husband_name", "father_name", "father_husband_name_",
+        "father_spouse_name", "father_mother_self",
+        "father_sppouse_name",    # ICOPE typo: "Father/Sppouse Name"
+    ],
+
     "cnic": ["cnic", "cnic_number", "cnic_nic_number", "cnic_father_mother_self"],
     "age": ["age", "age_12_18"],
     "gender": ["gender", "gender_m_f"],
     "contact_number": ["contact_number", "cell_number", "contact"],
+
     "referred": [
         "referred", "reffer", "refer", "referred_yes_no",
         "referred_for_further_checkups_yes_no", "have_you_referred_the_senior_for_further_check_ups",
         "total_referrals",
+        "referral",                                            # Kobo Dass: "Referral"
+        "referred_by_formula",                                 # HBA1C: "Referred BY Formula"
+        "reffered_by_formula",                                 # Kobo ICOPE typo: "Reffered By Formula"
+        "have_you_referred_the_senior_for_futher_check_ups",   # Kobo typo: "futher" not "further"
     ],
+
     "reason_for_referral": [
         "reason_of_referrals", "reason_for_referrals", "reason_of_referrals_recommendations",
         "if_yes_please_select_reason_for_referral", "recommendations_additional_remarks",
+        "refered_for",             # ICOPE: "Refered For"
     ],
-    "remarks": ["remarks", "open_comments", "comments_if_any", "physician_s_recommendation"],
+
+    "remarks": [
+        "remarks", "open_comments", "comments_if_any", "physician_s_recommendation",
+        "physicican_s_reccomendation",   # ICOPE typo: "Physicican's Reccomendation"
+    ],
     # NOTE: deliberately no "risk_category" canonical field/alias here.
     # Columns like "BP", "BP/BMI Status", "Diagnosis/Findings", or
     # "Mammography Findings Normal/Abnormal" fall through to `details`
@@ -109,24 +130,17 @@ for canon, variants in ALIASES.items():
 # ---------------------------------------------------------------------------
 # Downloadable, form-type-specific bulk upload templates.
 #
-# Every header below is chosen so that normalize_header() + REVERSE_ALIASES
-# maps it straight back onto the canonical field the importer expects - i.e.
-# a template downloaded here will round-trip cleanly through
-# import_screening_form() / import_activity_report() / import_training_attendance()
-# once filled in, with the geography columns cross-checked against existing
-# Region/Local Council/Jamatkhana records (see get_geo()).
+# Every header list below is the EXACT header set from the client's official
+# AKHSP template for that screening tool (cross-checked against the supplied
+# "Templates_of_headers_for_MIS.xlsx" reference sheet and the real column
+# order used in "2026_Screenings-data-smpl.xlsx"). Any column not consumed
+# by a canonical ALIASES entry above still round-trips safely into that
+# record's `details` JSONField - nothing from these headers is ever dropped,
+# whether or not it maps to a structured column.
 # ---------------------------------------------------------------------------
 COMMON_SCREENING_HEADERS = [
     "Date of Screening", "Full Name", "Father/Husband Name", "CNIC",
     "Age", "Gender (M/F)", "Contact Number",
-    "Region", "Local Council", "Jamat Khana",
-    "Referred (Yes/No)", "Reason for Referrals", "Remarks",
-]
-
-MENTAL_HEALTH_HEADERS = [
-    "Date of Screening", "Full Name", "Father/Husband Name", "CNIC",
-    "Age", "Gender (M/F)", "Contact Number",
-    "Depression Score", "Anxiety Score", "Stress Score",
     "Region", "Local Council", "Jamat Khana",
     "Referred (Yes/No)", "Reason for Referrals", "Remarks",
 ]
@@ -144,18 +158,91 @@ TRAINING_ATTENDANCE_HEADERS = [
     "Institution/Organization", "Designation/Title", "Attendance Status",
 ]
 
+CARDIAC_HEADERS = [
+    "Date of Screening", "Months", "Full Name", "Father/Husband Name", "CNIC", "Age", "Gender M/F",
+    "Contact Number", "Region", "Local council", "Jamat Khana", "Any Medical History(BP etc.)",
+    "History of Smoking, Alcohol, and Substance use", "height (CM)", "weight (KG)", "BMI",
+    "Systolic SBP", "diastolic DBP", "Referred", "Recommendations /Additional Remarks:",
+]
+
+ADOLESCENT_HEADERS = [
+    "Date of Assessment", "Month", "Full Name", "Father/ Husband Name", "Age (12-18)", "Gender",
+    "Contact Number", "Region", "Local council", "Jamat Khana/Venue", "Height (In CM)", "Weight (Kgs)",
+    "Temperature", "Blood Pressure", "Hair", "Scalp", "Nasal Septum", "External Ear", "Hearing",
+    "Teeth/ Dental", "Tonsils", "Vision", "Personal Hygiene", "Nutrition Status",
+    "HB test (Anemia)-Score", "HB Status", "Referred for further checkups. Yes / No", "Reason of Referrals",
+]
+
+CBE_HEADERS = [
+    "Date of Examination", "Month", "Full Name", "Father/husband Name", "CNIC", "Age", "Contact Number",
+    "Marital Status (Single/Married)", "Region", "Local council", "Jamat Khana",
+    "Family History of Breast Cancer (if any)", "Any history of breast lump or surgery Yes/NO",
+    "Currently taking any medication? Yes/no",
+    "1. Normal (2). Breast Pain 3. Abnormal Lymph nodes 4. Lump (5). Any other",
+    "Reffer", "Recommendations/Additional Remarks",
+]
+
+DASS_HEADERS = [
+    "Date of Assessment", "Month", "Full Name", "Father/Husband Name", "CNIC", "Age", "Gender",
+    "Contact Number", "Region", "Local Council", "Name of JamatKhana", "Depression Score",
+    "Anxiety Score", "Stress Score", "Level of Depression", "Level of Anxiety", "Level of Stress",
+    "Referred for further checkups. Yes / No", "Recommendations / Additional Remarks",
+]
+
+ICOPE_HEADERS = [
+    "Region", "Council", "Center", "Date of Screening", "Month", "Screening conducted at:", "Activity",
+    "Consent for Data Sharing", "Name", "Father/Sppouse Name", "DOB", "CNIC Number", "Age",
+    "Age Categories", "Gender", "Marital Status", "Contact #", "Weight (Kg)", "Height (cm)", "BMI",
+    "BMI Categories", "Body Temperature (°C)", "Blood Pressure (mm/Hg)", "Categories for BP",
+    "Heart rate", "Respiratory rate", "SpO2", "Pain Status", "Location of Pain", "Pain Scale",
+    "Known Medical History", "Known Medications Usage", "Left Eye", "Right Eye", "Eye Results",
+    "Whisper Test", "Depression Screening", "Nutrition Screening", "Physical Activity Screening",
+    "Cognition Screening", "Referral", "Refered For", "Comments (if any)", "Physicican's Reccomendation",
+]
+
+EYE_HEADERS = [
+    "Date of Screening", "Month", "Full Name", "Father Name", "CNIC (father/Mother/Self)", "Age",
+    "Gender", "Contact Number", "Region", "Local council", "Jamat Khana",
+    "Any Medical History(eg.Bp, CA,HDL)", "Left Eye Normal/Abnormal", "Right Eye Normal/Abnormal",
+    "Diagnosis/ Findings", "Referred Yes / No", "Reason of Referrals",
+]
+
+CAMP_HEADERS = [
+    "Date of Screening", "Month", "Full Name", "Father Name", "CNIC", "Age", "Gender M / F",
+    "Contact Number", "Region", "Local council", "Jamat Khana",
+    "Any Medical History BP,DM,CVD,SMK,CKD Others", "Currently taking any medications?", "Temperature",
+    "Heart Rate (Pulse)", "Blood Pressure", "Height (CM)", "Weight", "Waist Circumference (CM)", "BMI",
+    "Blood Sugar (RBS) /HBA1c", "cholesterol", "Eyes/Vision", "Ears/Hearing", "Nose", "Throat", "Skin",
+    "Any Physical Finding", "Referred for further checkups. Yes / No", "Reason of Referrals /Recommendations",
+]
+
+MAMMOGRAM_HEADERS = [
+    "Date of Examination", "Month", "NAME", "Father/husband Name", "CNIC", "AGE", "Contact Number",
+    "Marital Status (Single/Married)", "Region", "Jurisdiction", "Jamat Khana",
+    "Family History of Breast Cancer (if any)", "Any history of breast lump or surgery",
+    "Currently taking any medication?", "Date of CBE",
+    "1. Normal (2). Breast Pain 3. Abnormal Lymph nodes 4. Lump (5). Any other",
+    "Mammography Findings Normal/Abnormal", "Recommendations/Additional Remarks",
+]
+
+HBA1C_HEADERS = [
+    "Date of Screening", "Month", "Full Name", "Father/Husband Name", "CNIC", "Age", "Age Group",
+    "Gender M/F", "Contact Number", "Region", "Local council", "Jamat Khana", "any Medical history",
+    "HBA1C %", "Referred BY Formula", "Remarks",
+]
+
 TEMPLATE_HEADERS = {
     "ACTIVITY_REPORT": ACTIVITY_REPORT_HEADERS,
-    "cardiac_risk_assessment": COMMON_SCREENING_HEADERS,
-    "mental_health_dass21": MENTAL_HEALTH_HEADERS,
-    "clinical_breast_examination": COMMON_SCREENING_HEADERS,
-    "mammogram_screening": COMMON_SCREENING_HEADERS,
-    "elderly_eye_screening": COMMON_SCREENING_HEADERS,
-    "adolescent_health_screening": COMMON_SCREENING_HEADERS,
-    "hba1c_screening": COMMON_SCREENING_HEADERS,
-    "nutrition_assessment": COMMON_SCREENING_HEADERS,
-    "elderly_neurological_assessment": COMMON_SCREENING_HEADERS,
-    "adult_health_screening": COMMON_SCREENING_HEADERS,
+    "cardiac_risk_assessment": CARDIAC_HEADERS,
+    "mental_health_dass21": DASS_HEADERS,
+    "clinical_breast_examination": CBE_HEADERS,
+    "mammogram_screening": MAMMOGRAM_HEADERS,
+    "elderly_eye_screening": EYE_HEADERS,
+    "adolescent_health_screening": ADOLESCENT_HEADERS,
+    "hba1c_screening": HBA1C_HEADERS,
+    "nutrition_assessment": COMMON_SCREENING_HEADERS,  # no official template supplied yet - flag with client
+    "elderly_neurological_assessment": ICOPE_HEADERS,
+    "adult_health_screening": CAMP_HEADERS,
     "TRAINING_ATTENDANCE": TRAINING_ATTENDANCE_HEADERS,
 }
 
@@ -306,21 +393,23 @@ def to_bool(value):
     return str(value).strip().lower() in TRUE_VALUES
 
 
-DATE_FORMATS = ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S")
-DATE_FORMAT_HINT = "YYYY-MM-DD (e.g. 2026-03-05)"
+DATE_FORMATS = ("%d-%m-%Y", "%Y-%m-%d %H:%M:%S")
+DATE_FORMAT_HINT = "DD-MM-YYYY (e.g. 05-03-2026)"
 
 
 def parse_date(value, field_label="Date"):
     """
-    STRICT date parsing - exactly one format is accepted: YYYY-MM-DD (e.g.
-    2026-03-05), or the equivalent value pandas produces for a genuine
-    Excel date cell (YYYY-MM-DD HH:MM:SS - the trailing midnight timestamp
-    Excel/pandas attaches to a pure date). Anything else - other
-    separators, day-first/month-first text like "5/3/2026", an invalid
-    calendar date (e.g. 29 Feb in a non-leap year), or a blank cell - is
-    REJECTED for that row with a clear error, rather than silently
-    defaulting to today's date. Bad dates must be fixed and re-uploaded,
-    not guessed at.
+    STRICT date parsing - exactly one human-entered format is accepted:
+    DD-MM-YYYY (e.g. 05-03-2026). The second accepted pattern,
+    YYYY-MM-DD HH:MM:SS, isn't a second "allowed format" for typers - it's
+    the literal string pandas/openpyxl produce for a genuine Excel date
+    cell regardless of that cell's display format, so it has to stay
+    accepted or every real Excel date column would be rejected outright.
+    Anything else - other separators, month-first/ISO text like
+    "2026-03-05", an invalid calendar date (e.g. 29 Feb in a non-leap
+    year), or a blank cell - is REJECTED for that row with a clear error,
+    rather than silently defaulting to today's date. Bad dates must be
+    fixed and re-uploaded, not guessed at.
     """
     if isinstance(value, datetime.datetime):
         return value.date()
@@ -339,9 +428,8 @@ def parse_date(value, field_label="Date"):
 
     raise ImportError_(
         f"{field_label} '{text}' is not a valid date in the required {DATE_FORMAT_HINT} format "
-        f"(other formats/separators, e.g. DD/MM/YYYY, are not accepted)."
+        f"(other formats/separators, e.g. YYYY-MM-DD or MM-DD-YYYY, are not accepted)."
     )
-
 
 def get_geo(region_name, local_council_name, jamat_khana_name):
     """
@@ -424,17 +512,6 @@ def read_dataframe(uploaded_file):
     return pd.read_excel(uploaded_file, dtype=str, keep_default_na=False)
 
 
-def read_all_sheets(uploaded_file):
-    """Returns an OrderedDict {sheet_name: dataframe} for every sheet in an
-    Excel file (CSV files have no sheets, so this always returns a single
-    entry keyed None for CSV). Used so a workbook with one tab per
-    screening/report type - the common export format from Kobo/AKHSP - can
-    be uploaded as a single file instead of split apart first."""
-    name = uploaded_file.name.lower()
-    if name.endswith(".csv"):
-        return {None: pd.read_csv(uploaded_file, dtype=str, keep_default_na=False)}
-    return pd.read_excel(uploaded_file, sheet_name=None, dtype=str, keep_default_na=False)
-
 
 def _drop_blank_rows(df):
     """Drops rows where every cell is blank/whitespace - harmless padding
@@ -447,43 +524,6 @@ def _drop_blank_rows(df):
     mask = df.apply(lambda row: any(str(v).strip() for v in row), axis=1)
     return df[mask]
 
-
-# Keyword hints used to match an Excel tab name to one of our known form
-# types, for multi-sheet workbooks (one sheet per screening/report type -
-# the common export format from Kobo/AKHSP). Matching is substring-based
-# against a normalized (lowercased, punctuation-stripped) sheet name, so
-# minor variations/typos in tab naming ("Screeening", "Memogram") are
-# tolerated as long as the core keyword is present.
-SHEET_NAME_FORM_TYPE_HINTS = {
-    "cardiac_risk_assessment": ["cardiac", "heart risk", "chd risk"],
-    "mental_health_dass21": ["dass", "mental health", "depression anxiety"],
-    "clinical_breast_examination": ["cbe", "breast exam", "breast screen", "clinical breast"],
-    "mammogram_screening": ["mammogram", "memogram", "mammography"],
-    "elderly_eye_screening": ["eye screening", "eye exam", "vision screening", "ophthal"],
-    "adolescent_health_screening": ["adolescent", "school h", "school health", "student health"],
-    "hba1c_screening": ["hba1c", "hb a1c", "a1c"],
-    "nutrition_assessment": ["nutrition"],
-    "elderly_neurological_assessment": ["icope", "neurological", "elderly neuro"],
-    "adult_health_screening": ["camp screening", "adult health", "camp health", "camp data"],
-    "ACTIVITY_REPORT": ["activity report", "activities"],
-    "TRAINING_ATTENDANCE": ["training attendance", "attendance sheet"],
-}
-
-
-def guess_form_type_from_sheet_name(sheet_name):
-    """Best-effort match of an Excel tab name to one of our known form
-    types. Returns None if nothing matches confidently - that sheet is
-    then flagged as skipped and reported to the uploader, never silently
-    dropped without explanation."""
-    if not sheet_name:
-        return None
-    normalized = re.sub(r"[^a-z0-9 ]+", " ", str(sheet_name).strip().lower())
-    normalized = re.sub(r"\s+", " ", normalized).strip()
-    for form_type, keywords in SHEET_NAME_FORM_TYPE_HINTS.items():
-        for kw in keywords:
-            if kw in normalized:
-                return form_type
-    return None
 
 
 class ImportError_(Exception):
@@ -682,21 +722,18 @@ def process_upload_batch(batch: UploadBatch):
     """
     Entry point called by the view / management command to process a batch.
 
-    - CSV, or a single-sheet Excel file: behaves exactly as before - the
-      one sheet is imported against the Form Type the uploader selected.
-    - A multi-sheet Excel file (e.g. a Kobo/AKHSP export with one tab per
-      screening/report type): batch.form_type is switched to MULTI_SHEET
-      and EVERY sheet is processed automatically, matched to a form type
-      by its tab name (see guess_form_type_from_sheet_name()). A sheet
-      whose name can't be confidently matched is not silently skipped -
-      it's reported as a batch-level error naming that sheet, so nothing
-      ever disappears without explanation.
+    Always processes a single sheet — the first sheet of the uploaded
+    workbook for Excel files, or the only "sheet" for CSV — against the
+    Form Type the uploader manually selected. Every row still goes through
+    the full validation pipeline (required fields, strict date format,
+    geography cross-check against existing records) exactly as before;
+    only the automatic multi-tab detection has been removed.
     """
     batch.status = UploadBatch.Status.PROCESSING
     batch.save(update_fields=["status"])
 
     try:
-        sheets = read_all_sheets(batch.file)
+        df = read_dataframe(batch.file)
     except Exception as exc:
         batch.status = UploadBatch.Status.FAILED
         batch.error_log = [{"row": 0, "error": f"Could not read file: {exc}"}]
@@ -704,43 +741,9 @@ def process_upload_batch(batch: UploadBatch):
         batch.save(update_fields=["status", "error_log", "processed_at"])
         return batch
 
-    if len(sheets) <= 1:
-        # CSV, or an Excel file with exactly one sheet - unchanged behavior:
-        # import against the manually selected form_type.
-        (_, df), = sheets.items()
-        df = _drop_blank_rows(df)
-        batch.total_rows = len(df)
-        success, errors = _dispatch_import(batch.form_type, df, batch.created_by)
-    else:
-        # Multi-sheet workbook - auto-detect and process every sheet.
-        batch.form_type = UploadBatch.FormType.MULTI_SHEET
-        total_rows = 0
-        total_success = 0
-        all_errors = []
-        for sheet_name, raw_df in sheets.items():
-            df = _drop_blank_rows(raw_df)
-            if df.empty:
-                continue
-            total_rows += len(df)
-            guessed = guess_form_type_from_sheet_name(sheet_name)
-            if guessed is None:
-                all_errors.append({
-                    "row": 0,
-                    "error": (
-                        f"[Sheet: {sheet_name}] Could not determine a matching form type from this "
-                        f"sheet's name - none of its {len(df)} row(s) were imported. Rename the tab to "
-                        f"include a recognisable keyword (e.g. 'Cardiac', 'DASS', 'CBE', 'Mammogram', "
-                        f"'HbA1c', 'ICOPE', 'Eye Screening', 'Camp Screening', 'Adolescent') or upload it "
-                        f"separately with the Form Type selected manually."
-                    ),
-                })
-                continue
-            sheet_success, sheet_errors = _dispatch_import(guessed, df, batch.created_by)
-            total_success += sheet_success
-            for e in sheet_errors:
-                all_errors.append({"row": e["row"], "error": f"[Sheet: {sheet_name}] {e['error']}"})
-        batch.total_rows = total_rows
-        success, errors = total_success, all_errors
+    df = _drop_blank_rows(df)
+    batch.total_rows = len(df)
+    success, errors = _dispatch_import(batch.form_type, df, batch.created_by)
 
     batch.success_count = success
     batch.error_count = len(errors)
@@ -752,3 +755,86 @@ def process_upload_batch(batch: UploadBatch):
     batch.processed_at = timezone.now()
     batch.save(update_fields=["total_rows", "success_count", "error_count", "error_log", "status", "processed_at"])
     return batch
+
+def build_geography_reference(user):
+    """
+    Live reference sheet: every Region / Local Council / Jamatkhana the
+    given user has access to, pulled directly from the database at
+    download time (not a static template). Bulk upload's get_geo() only
+    ever matches against records that already exist, so this gives
+    uploaders the exact spelling to copy into their data file instead of
+    guessing and getting a row rejected.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    from core.models import LocalCouncil
+
+    lcs = (
+        LocalCouncil.objects
+        .select_related("region")
+        .prefetch_related("jamat_khanas")
+        .order_by("region__name", "name")
+    )
+    if not (user.is_superuser or user.is_national):
+        if user.role == user.Role.REGIONAL and user.region_id:
+            lcs = lcs.filter(region_id=user.region_id)
+        elif user.local_council_id:
+            lcs = lcs.filter(id=user.local_council_id)
+        elif user.region_id:
+            lcs = lcs.filter(region_id=user.region_id)
+        else:
+            lcs = lcs.none()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Geography Reference"
+    headers = ["Region", "Local Council", "Jamatkhana"]
+    ws.append(headers)
+
+    header_fill = PatternFill(start_color="0B5D63", end_color="0B5D63", fill_type="solid")
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+    for i in range(1, len(headers) + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 30
+
+    for lc in lcs:
+        jks = list(lc.jamat_khanas.all().order_by("name"))
+        if jks:
+            for jk in jks:
+                ws.append([lc.region.name, lc.name, jk.name])
+        else:
+            # Local Council with no Jamatkhanas yet - still listed, since
+            # Jamatkhana is optional on most upload templates but Region /
+            # Local Council are required.
+            ws.append([lc.region.name, lc.name, ""])
+
+    ws.freeze_panes = "A2"
+
+    notes = wb.create_sheet("Notes")
+    notes.column_dimensions["A"].width = 110
+    notes["A1"] = "How to use this reference"
+    notes["A1"].font = Font(bold=True, size=13, color="0B5D63")
+    lines = [
+        "",
+        "This sheet lists every Region, Local Council and Jamatkhana you have access to, spelled exactly as",
+        "stored in the system right now.",
+        "",
+        "Bulk upload cross-checks the Region / Local Council / Jamatkhana columns in your data file against",
+        "these exact records and never creates new geography automatically - copy the spelling straight from",
+        "here into your upload template to avoid a row being rejected for unrecognised geography.",
+        "",
+        "If you need a Region or Local Council that isn't listed here yet, ask a National Admin to add it via",
+        "'Regions & Local Councils'. New Jamatkhanas are added via Django Admin.",
+        "",
+        f"Generated {timezone.now():%Y-%m-%d %H:%M} - reflects the database at the time of download, not a",
+        "fixed template, so re-download this if geography has changed since your last upload.",
+    ]
+    for offset, line in enumerate(lines, start=2):
+        notes[f"A{offset}"] = line
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf

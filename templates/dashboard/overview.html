@@ -6,13 +6,6 @@
   <div class="page-subtitle">Scope: {{ user_scope_label }} &middot; Consolidated across Activity Reporting, Screening, Training and Case Management</div>
 </div>
 
-<div class="section-title">Jump to Module Dashboards</div>
-<div class="row g-3 no-print module-jump">
-  <div class="col-6 col-md-3"><a href="{% url 'dashboard:activity_dashboard' %}" class="btn btn-outline-primary w-100"><i class="fa-solid fa-calendar-check d-block mb-1"></i>Activity Reporting</a></div>
-  <div class="col-6 col-md-3"><a href="{% url 'dashboard:screening_dashboard' %}" class="btn btn-outline-primary w-100"><i class="fa-solid fa-stethoscope d-block mb-1"></i>HB Screening Programs</a></div>
-  <div class="col-6 col-md-3"><a href="{% url 'dashboard:training_dashboard' %}" class="btn btn-outline-primary w-100"><i class="fa-solid fa-chalkboard-user d-block mb-1"></i>Training &amp; Capacity</a></div>
-  <div class="col-6 col-md-3"><a href="{% url 'dashboard:case_dashboard' %}" class="btn btn-outline-primary w-100"><i class="fa-solid fa-notes-medical d-block mb-1"></i>Case Management</a></div>
-</div>
 
 {% include "dashboard/_filter_overview.html" %}
 

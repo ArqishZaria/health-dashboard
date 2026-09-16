@@ -1,13 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Cases{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>Case Management</h4>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Case Management &amp; Referrals</span>
+        <h1 class="ph-title">Case Management</h1>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="card">
   <div class="card-body">
-    <form class="row g-2 mb-3 justify-content-center" method="get">
+    <form class="row g-2 mb-3" method="get">
       <div class="col-auto">
         <select name="status" class="form-select">
           <option value="">All Statuses</option>

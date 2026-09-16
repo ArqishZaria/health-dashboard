@@ -1,52 +1,264 @@
+/* ============================================================
+   Health Programs DMS — Design System v2
+   Navbar rules (.app-navbar, .navbar *) are intentionally left
+   pixel-for-pixel identical to the previous theme — everything
+   else has been rebuilt: layout, headers, cards, tables, forms,
+   filters, auth screen.
+   ============================================================ */
+
 :root {
   --brand-primary: #0b5d63;
   --brand-secondary: #12878f;
   --brand-accent: #e8a33d;
   --brand-light: #f4f9f9;
+
+  /* new tokens */
+  --ink: #16232a;
+  --ink-soft: #5b6b70;
+  --ink-faint: #8a9a9e;
+  --surface: #ffffff;
+  --surface-muted: #f6f9fa;
+  --border: #e6edee;
+  --border-soft: #eef3f3;
+  --success: #1b8e4f;
+  --warn: #b5651d;
+  --danger: #b3261e;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 2px rgba(16, 40, 43, 0.06);
+  --shadow-md: 0 8px 24px rgba(16, 40, 43, 0.08);
+  --shadow-lg: 0 20px 45px rgba(16, 40, 43, 0.14);
+  --space-1: .375rem;
+  --space-2: .75rem;
+  --space-3: 1.25rem;
+  --space-4: 2rem;
 }
-body { background-color: var(--brand-light); font-family: "Segoe UI", Roboto, Arial, sans-serif; }
+
+* { box-sizing: border-box; }
+
+body {
+  background-color: var(--surface-muted);
+  font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 { color: var(--ink); font-weight: 700; letter-spacing: -0.01em; }
+a { text-decoration: none; }
+
+/* ---------- Navbar: UNCHANGED (kept for continuity) ---------- */
 .app-navbar { background: linear-gradient(90deg, var(--brand-primary), var(--brand-secondary)); }
 .navbar .nav-link { font-weight: 500; }
+
+/* ---------- Page shell ---------- */
+main.container-fluid { max-width: 1360px; margin: 0 auto; padding-top: 1.75rem !important; padding-bottom: 3rem !important; }
+
+.alert { border: none; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+
+/* ---------- Page header (new "flow": left-aligned, breadcrumb-style) ---------- */
+.ph { margin-bottom: 1.75rem; }
+.ph-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.ph-left { display: flex; align-items: flex-start; gap: .9rem; }
+.ph-titles { display: flex; flex-direction: column; gap: .2rem; padding-top: .1rem; }
+.ph-eyebrow {
+  font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--brand-secondary);
+}
+.ph-title { font-size: 1.55rem; font-weight: 800; margin: 0; color: var(--ink); }
+.ph-subtitle { font-size: .88rem; color: var(--ink-soft); margin: 0; }
+.ph-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+
+/* icon-circle back button (keeps original onclick/back-behavior, just restyled) */
+.back-btn {
+  width: 40px; height: 40px; padding: 0 !important;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50% !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--brand-primary) !important;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.back-btn:hover { background: var(--brand-light) !important; }
+.back-btn i { margin: 0 !important; }
+
+/* ---------- Cards ---------- */
+.card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.card-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+  font-weight: 700;
+  color: var(--ink);
+  font-size: .95rem;
+  padding: .9rem 1.1rem;
+}
+.card-body { padding: 1.25rem; }
+
+/* ---------- KPI / metric cards ---------- */
+.metric-card {
+  position: relative;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.25rem 1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  height: 100%;
+  overflow: hidden;
+}
+.metric-card::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--brand-secondary);
+}
+.metric-card.warn::before { background: var(--warn); }
+.metric-card.danger::before { background: var(--danger); }
+.metric-card.good::before { background: var(--success); }
+.metric-card .metric-label {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-faint); font-weight: 700; margin-bottom: .35rem;
+}
+.metric-card .metric-value { font-size: 2rem; font-weight: 800; color: var(--ink); line-height: 1.1; }
+.metric-card .metric-sub { font-size: .8rem; color: var(--ink-soft); margin-top: .15rem; }
+.metric-card.warn .metric-value { color: var(--warn); }
+.metric-card.danger .metric-value { color: var(--danger); }
+.metric-card.good .metric-value { color: var(--success); }
+
+/* ---------- Section headings ---------- */
+.section-title {
+  display: flex; align-items: center; gap: .5rem;
+  font-weight: 800; color: var(--ink);
+  margin-top: 2.25rem; margin-bottom: 1rem;
+  font-size: 1.02rem;
+  border-left: none;
+  padding-left: 0;
+}
+.section-title::before {
+  content: "";
+  width: 10px; height: 10px; border-radius: 3px;
+  background: var(--brand-accent);
+  display: inline-block;
+}
+
+/* ---------- Tables ---------- */
+.table-responsive { border-radius: var(--radius-md); overflow: hidden; }
+.table thead { background-color: var(--surface-muted); }
+.table thead th {
+  font-size: .74rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--ink-faint); font-weight: 700; border-bottom: 1px solid var(--border);
+}
+.table td { color: var(--ink); vertical-align: middle; }
+.table-hover tbody tr:hover { background-color: var(--brand-light); }
+.table > :not(caption) > * > * { padding: .7rem .85rem; }
+
+.progress { border-radius: 8px; background-color: var(--border-soft); }
+
+.badge { border-radius: 999px; padding: .4em .8em; font-weight: 600; }
+.badge-role { background-color: var(--brand-accent); }
+
+/* ---------- Buttons ---------- */
+.btn { border-radius: 999px; font-weight: 600; padding: .45rem 1.1rem; }
+.btn-sm { padding: .32rem .85rem; }
+.btn-primary { background-color: var(--brand-primary); border-color: var(--brand-primary); }
+.btn-primary:hover { background-color: var(--brand-secondary); border-color: var(--brand-secondary); }
+.btn-outline-secondary, .btn-outline-primary, .btn-outline-success, .btn-outline-danger { font-weight: 600; }
+
+/* ---------- Forms ---------- */
+.form-label { font-size: .8rem; font-weight: 700; color: var(--ink-soft); margin-bottom: .3rem; }
+.form-control, .form-select {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  padding: .55rem .8rem;
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--brand-secondary);
+  box-shadow: 0 0 0 3px rgba(18, 135, 143, 0.14);
+}
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; }
+.form-grid .field-full { grid-column: 1 / -1; }
+@media (max-width: 767px) { .form-grid { grid-template-columns: 1fr; } }
+.form-card-footer {
+  display: flex; gap: .6rem; margin-top: 1.5rem; padding-top: 1.25rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* ---------- Filter toolbar (redesigned from old .filter-card) ---------- */
+.filter-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.filter-card .card-body { padding: 1rem 1.1rem; }
+.filter-card select option[hidden] { display: none; }
+.filter-meta {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: .6rem; margin-top: .85rem; padding-top: .85rem; border-top: 1px dashed var(--border);
+}
+.filter-meta .period-chip {
+  display: inline-flex; align-items: center; gap: .4rem;
+  background: var(--brand-light); color: var(--brand-primary);
+  border-radius: 999px; padding: .3rem .75rem; font-size: .8rem; font-weight: 600;
+}
+
+/* ---------- Auth screen (login) ---------- */
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+}
+@media (max-width: 900px) { .auth-shell { grid-template-columns: 1fr; } }
+.auth-visual {
+  background: linear-gradient(160deg, var(--brand-primary), #123b3d 70%, #0d2b2c);
+  color: #fff;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 4rem 3.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.auth-visual::after {
+  content: "";
+  position: absolute; right: -120px; top: -120px; width: 340px; height: 340px;
+  border-radius: 50%; background: rgba(255,255,255,0.06);
+}
+.auth-visual h1 { color: #fff; font-size: 2rem; margin-bottom: .6rem; }
+.auth-visual p { color: rgba(255,255,255,.78); max-width: 380px; font-size: .95rem; }
+.auth-visual .auth-badge {
+  display: inline-flex; align-items: center; gap: .5rem;
+  background: rgba(255,255,255,.12); border-radius: 999px; padding: .4rem .9rem;
+  font-size: .78rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  margin-bottom: 1.5rem; width: fit-content;
+}
+.auth-panel { display: flex; align-items: center; justify-content: center; background: var(--surface-muted); padding: 2rem; }
+.auth-card {
+  max-width: 420px; width: 100%; border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 2.25rem 2rem;
+  background: var(--surface);
+}
+.auth-card h4 { font-size: 1.3rem; }
+
+/* legacy stat-card gradient blocks (upload_detail) kept, softened */
 .stat-card {
-  border: none; border-radius: 14px; color: #fff;
+  border: none; border-radius: var(--radius-lg); color: #fff;
   background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
-  box-shadow: 0 6px 18px rgba(11,93,99,0.18);
+  box-shadow: var(--shadow-md);
 }
 .stat-card.accent { background: linear-gradient(135deg, #b5651d, var(--brand-accent)); }
 .stat-card.neutral { background: linear-gradient(135deg, #37474f, #607d8b); }
 .stat-card.danger { background: linear-gradient(135deg, #8e1b1b, #c0392b); }
-.stat-card h2 { font-weight: 700; }
-.card { border: none; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
-.card-header { background-color: #fff; border-bottom: 1px solid #eef1f1; font-weight: 600; color: var(--brand-primary); }
-.table thead { background-color: #eef6f6; }
-.btn-primary { background-color: var(--brand-primary); border-color: var(--brand-primary); }
-.btn-primary:hover { background-color: var(--brand-secondary); border-color: var(--brand-secondary); }
-.badge-role { background-color: var(--brand-accent); }
-.auth-wrapper { min-height: 100vh; display:flex; align-items:center; justify-content:center; background: linear-gradient(135deg, var(--brand-primary), #16323a);}
-.auth-card { max-width: 420px; width: 100%; border-radius: 16px; }
+.stat-card h2 { color: #fff; font-weight: 700; }
 
-/* --- Metric / KPI cards used across dashboards --- */
-.metric-card { border: none; border-radius: 12px; padding: 1rem 1.25rem; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.06); height: 100%; }
-.metric-card .metric-label { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: #6c757d; font-weight: 600; }
-.metric-card .metric-value { font-size: 1.9rem; font-weight: 700; color: var(--brand-primary); line-height: 1.2; }
-.metric-card .metric-sub { font-size: .82rem; color: #6c757d; }
-.metric-card.warn .metric-value { color: #b5651d; }
-.metric-card.danger .metric-value { color: #8e1b1b; }
-.metric-card.good .metric-value { color: #1b8e4f; }
-.section-title { font-weight: 700; color: var(--brand-primary); margin-top: 1.75rem; margin-bottom: .75rem; border-left: 4px solid var(--brand-accent); padding-left: .6rem; }
-.progress { border-radius: 8px; }
-
-/* --- Page headers: heading centered, actions/back button flow beneath it --- */
-.page-header { text-align: center; margin-bottom: 1rem; }
-.page-header .back-btn { margin-bottom: .5rem; }
-.page-header h3, .page-header h4 { margin-bottom: .25rem; }
-.page-header .page-subtitle { color: #6c757d; font-size: .9rem; margin-bottom: .5rem; }
-.page-header .page-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
-
-/* --- Filter card: dropdowns hidden by geography cascade collapse cleanly --- */
-.filter-card select option[hidden] { display: none; }
-
-/* --- Print / export-to-PDF (browser Print dialog) --- */
+/* ---------- Print ---------- */
 @media print {
   .app-navbar, .no-print, .btn, form { display: none !important; }
   main { padding: 0 !important; }

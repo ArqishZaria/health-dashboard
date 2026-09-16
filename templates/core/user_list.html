@@ -1,10 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Manage Users{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h4><i class="fa-solid fa-users-gear me-2"></i>Manage Users</h4>
-  <div class="page-actions">
-    <a href="{% url 'core:user_add' %}" class="btn btn-primary"><i class="fa-solid fa-plus me-1"></i>Add User</a>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Administration</span>
+        <h1 class="ph-title"><i class="fa-solid fa-users-gear me-2"></i>Manage Users</h1>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <a href="{% url 'core:user_add' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus me-1"></i>Add User</a>
+    </div>
   </div>
 </div>
 <div class="card">

@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Upload Detail{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>Upload Detail - {{ batch.get_form_type_display }}</h4>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Bulk Upload</span>
+        <h1 class="ph-title">Upload Detail — {{ batch.get_form_type_display }}</h1>
+      </div>
+    </div>
+  </div>
 </div>
-<div class="row g-3 mb-3 justify-content-center">
+<div class="row g-3 mb-3">
   <div class="col-md-3"><div class="card stat-card p-3 text-center"><small>Total Rows</small><h2>{{ batch.total_rows }}</h2></div></div>
   <div class="col-md-3"><div class="card stat-card p-3 text-center" style="background:linear-gradient(135deg,#1b8e4f,#27ae60);"><small>Imported</small><h2>{{ batch.success_count }}</h2></div></div>
   <div class="col-md-3"><div class="card stat-card danger p-3 text-center"><small>Errors</small><h2>{{ batch.error_count }}</h2></div></div>

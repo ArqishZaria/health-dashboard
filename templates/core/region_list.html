@@ -1,27 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Regions &amp; Local Councils{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h4><i class="fa-solid fa-map-location-dot me-2"></i>Regions &amp; Local Councils</h4>
-  <div class="page-subtitle">
-    Read-only view of existing geography. New Regions, Local Councils and Jamatkhanas can only be added via
-    {% if user.is_staff %}
-      <a href="{% url 'admin:index' %}">Django Admin</a>
-    {% else %}
-      Django Admin (ask a National Admin with admin-panel access)
-    {% endif %}
-    - not from this page.
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Administration</span>
+        <h1 class="ph-title"><i class="fa-solid fa-map-location-dot me-2"></i>Regions &amp; Local Councils</h1>
+        <p class="ph-subtitle">
+          Read-only view of existing geography. New Regions, Local Councils and Jamatkhanas can only be added via
+          {% if user.is_staff %}
+            <a href="{% url 'admin:index' %}">Django Admin</a>
+          {% else %}
+            Django Admin (ask a National Admin with admin-panel access)
+          {% endif %}
+          — not from this page.
+        </p>
+      </div>
+    </div>
   </div>
 </div>
 <div class="row g-3">
 {% for region in regions %}
   <div class="col-md-4">
     <div class="card h-100">
-      <div class="card-header">{{ region.name }} <span class="badge bg-secondary float-end">{{ region.code }}</span></div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        {{ region.name }} <span class="badge bg-secondary">{{ region.code }}</span>
+      </div>
       <div class="card-body">
         <ul class="list-unstyled mb-0">
         {% for lc in region.local_councils.all %}
-          <li><i class="fa-solid fa-location-dot me-1 text-muted"></i>{{ lc.name }}</li>
+          <li class="mb-1"><i class="fa-solid fa-location-dot me-1 text-muted"></i>{{ lc.name }}</li>
         {% empty %}
           <li class="text-muted">No local councils yet.</li>
         {% endfor %}

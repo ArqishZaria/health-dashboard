@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Training Dashboard{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4><i class="fa-solid fa-chalkboard-user me-2"></i>Training &amp; Capacity Building Dashboard</h4>
-  <div class="page-actions">
-    <a href="{% url 'dashboard:training_list' %}" class="btn btn-outline-secondary btn-sm">View List</a>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Training &amp; Capacity Building</span>
+        <h1 class="ph-title"><i class="fa-solid fa-chalkboard-user me-2"></i>Training Dashboard</h1>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <a href="{% url 'dashboard:training_list' %}" class="btn btn-outline-secondary btn-sm">View List</a>
+    </div>
   </div>
 </div>
 

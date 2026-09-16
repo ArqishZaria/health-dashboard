@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Health Screening Programs Dashboard{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4><i class="fa-solid fa-stethoscope me-2"></i>Health Screening Programs Dashboard</h4>
-  <div class="page-actions">
-    <a href="{% url 'dashboard:participant_list' %}" class="btn btn-outline-secondary btn-sm">Participants</a>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Health Screening</span>
+        <h1 class="ph-title"><i class="fa-solid fa-stethoscope me-2"></i>Screening Programs Dashboard</h1>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <a href="{% url 'dashboard:participant_list' %}" class="btn btn-outline-secondary btn-sm">Participants</a>
+    </div>
   </div>
 </div>
 

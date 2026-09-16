@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ training.title }}{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>{{ training.title }}</h4>
-  <div class="page-actions">
-    <a href="{% url 'dashboard:training_edit' training.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Training &amp; Capacity Building</span>
+        <h1 class="ph-title">{{ training.title }}</h1>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <a href="{% url 'dashboard:training_edit' training.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
+    </div>
   </div>
 </div>
 <div class="card mb-3">

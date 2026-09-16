@@ -1,9 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Add Budget Allocation{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>Add Budget Allocation</h4>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Finance</span>
+        <h1 class="ph-title">Add Budget Allocation</h1>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="card col-lg-6 mx-auto">
   <div class="card-body">
@@ -17,7 +24,7 @@
           {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
         </div>
       {% endfor %}
-      <div class="text-center">
+      <div class="form-card-footer">
         <button class="btn btn-primary">Save</button>
         <a href="{% url 'dashboard:budget_list' %}" class="btn btn-outline-secondary">Cancel</a>
       </div>

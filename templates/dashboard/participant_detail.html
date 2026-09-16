@@ -1,9 +1,17 @@
 {% extends "base.html" %}
 {% block title %}{{ participant.full_name }}{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>Participant Profile - {{ participant.participant_uid }}</h4>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Health Screening</span>
+        <h1 class="ph-title">{{ participant.full_name }}</h1>
+        <p class="ph-subtitle">Participant Profile — {{ participant.participant_uid }}</p>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="card mb-3">
   <div class="card-header">Demographics</div>

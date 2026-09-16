@@ -1,11 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Overview Dashboard{% endblock %}
 {% block content %}
-<div class="page-header">
-  <h3>Overview Dashboard</h3>
-  <div class="page-subtitle">Scope: {{ user_scope_label }} &middot; Consolidated across Activity Reporting, Screening, Training and Case Management</div>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Overview</span>
+        <h1 class="ph-title">Welcome back</h1>
+        <p class="ph-subtitle">Scope: {{ user_scope_label }} &middot; Consolidated across Activity Reporting, Screening, Training and Case Management</p>
+      </div>
+    </div>
+  </div>
 </div>
-
 
 {% include "dashboard/_filter_overview.html" %}
 
@@ -210,7 +216,6 @@ new Chart(document.getElementById('regionChart'), {
   options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
 });
 
-// Diverging (two-way / population-pyramid) age & gender chart: male mirrored negative.
 const ageLabels = {{ age_labels|safe }};
 const maleRaw = {{ male_series|safe }};
 const femaleRaw = {{ female_series|safe }};

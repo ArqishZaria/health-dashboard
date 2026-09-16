@@ -1,12 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Trainings{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4 class="mb-0">Training Programs</h4>
-  <div class="page-actions">
-    <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-arrow-up me-1"></i>Bulk Upload</a>
-    <a href="{% url 'dashboard:training_export' %}" class="btn btn-outline-success btn-sm">Export CSV</a>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Training &amp; Capacity Building</span>
+        <h1 class="ph-title">Training Programs</h1>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-arrow-up me-1"></i>Bulk Upload</a>
+      <a href="{% url 'dashboard:training_export' %}" class="btn btn-outline-success btn-sm">Export CSV</a>
+    </div>
   </div>
 </div>
 <div class="card">

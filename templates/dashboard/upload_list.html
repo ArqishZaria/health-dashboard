@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Upload History{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>Upload History</h4>
-  <div class="page-actions">
-    <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm">New Upload</a>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Bulk Upload</span>
+        <h1 class="ph-title">Upload History</h1>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm">New Upload</a>
+    </div>
   </div>
 </div>
 <div class="card">

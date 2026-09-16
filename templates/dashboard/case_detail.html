@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ case.case_id }}{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>{{ case.case_id }} - {{ case.participant.full_name }}</h4>
-  <div class="page-actions">
-    <a href="{% url 'dashboard:case_edit' case.pk %}" class="btn btn-outline-primary btn-sm">Edit Case</a>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Case Management &amp; Referrals</span>
+        <h1 class="ph-title">{{ case.case_id }} — {{ case.participant.full_name }}</h1>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <a href="{% url 'dashboard:case_edit' case.pk %}" class="btn btn-outline-primary btn-sm">Edit Case</a>
+    </div>
   </div>
 </div>
 <div class="card mb-3">
@@ -42,16 +49,16 @@
   <div class="card-body">
     <form method="post" action="{% url 'dashboard:case_follow_up_add' case.pk %}">
       {% csrf_token %}
-      <div class="row g-3">
+      <div class="form-grid">
       {% for field in follow_up_form %}
-        <div class="col-md-6">
+        <div{% if field.field.widget.input_type == "textarea" %} class="field-full"{% endif %}>
           <label class="form-label">{{ field.label }}</label>
           {{ field }}
         </div>
       {% endfor %}
       </div>
-      <div class="text-center">
-        <button class="btn btn-primary mt-3">Add Follow-up</button>
+      <div class="form-card-footer">
+        <button class="btn btn-primary">Add Follow-up</button>
       </div>
     </form>
   </div>

@@ -1,16 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Bulk Upload{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4><i class="fa-solid fa-file-arrow-up me-2"></i>Bulk Upload (Excel / CSV)</h4>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Data Import</span>
+        <h1 class="ph-title"><i class="fa-solid fa-file-arrow-up me-2"></i>Bulk Upload (Excel / CSV)</h1>
+      </div>
+    </div>
+  </div>
 </div>
-<div class="row justify-content-center">
+<div class="row justify-content-center g-3">
   <div class="col-lg-7">
     <div class="card">
       <div class="card-header">Upload a Data File</div>
       <div class="card-body">
-        <p class="text-muted text-center">Select the form type, download its template if you don't already have a filled
+        <p class="text-muted">Select the form type, download its template if you don't already have a filled
         one, then upload your completed file. Records are validated row-by-row; successful rows are imported and any
         errors are reported without stopping the whole batch.</p>
         <form method="post" enctype="multipart/form-data">
@@ -20,17 +27,15 @@
             {{ form.form_type }}
             <div class="form-text">Select the form type that matches the sheet you're uploading — the file's first sheet is imported against it.</div>
           </div>
-          <div class="mb-3 text-center">
+          <div class="d-flex flex-wrap gap-2 mb-3">
             <a id="templateDownloadLink"
                href="{% url 'dashboard:upload_template' form_type=form.form_type.value|default:'ACTIVITY_REPORT' %}"
                data-template-base="{% url 'dashboard:upload_template' form_type='__FORMTYPE__' %}"
                class="btn btn-outline-primary btn-sm">
-              <i class="fa-solid fa-file-arrow-down me-1"></i>Download Template for Selected Form Type
+              <i class="fa-solid fa-file-arrow-down me-1"></i>Download Template
             </a>
-          </div>
-          <div class="mb-3 text-center">
             <a href="{% url 'dashboard:geography_reference' %}" class="btn btn-outline-secondary btn-sm">
-              <i class="fa-solid fa-map-location-dot me-1"></i>Download Region / Local Council / Jamatkhana Reference
+              <i class="fa-solid fa-map-location-dot me-1"></i>Geography Reference
             </a>
           </div>
           <div class="mb-3">
@@ -38,7 +43,7 @@
             {{ form.file }}
             {% if form.file.errors %}<div class="text-danger small">{{ form.file.errors|striptags }}</div>{% endif %}
           </div>
-          <div class="text-center">
+          <div class="form-card-footer">
             <button class="btn btn-primary"><i class="fa-solid fa-upload me-1"></i>Upload &amp; Process</button>
             <a href="{% url 'dashboard:upload_list' %}" class="btn btn-outline-secondary">Upload History</a>
           </div>
@@ -50,7 +55,7 @@
     <div class="card">
       <div class="card-header">Tips</div>
       <div class="card-body small text-muted">
-        <ul>
+        <ul class="mb-0">
           <li>Always start from the "Download Template" button above for your chosen form type - the headers must
           match exactly for a row to import correctly. The template's "Instructions" sheet has the full details.</li>
           <li><strong>Dates must be in DD-MM-YYYY format</strong> (e.g. 05-03-2026) - no other format is accepted.

@@ -1,14 +1,24 @@
 {% extends "base.html" %}
 {% block title %}User Form{% endblock %}
 {% block content %}
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Administration</span>
+        <h1 class="ph-title">{% if object %}Edit User{% else %}Add User{% endif %}</h1>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="card col-lg-7">
   <div class="card-header">{% if object %}Edit User{% else %}Add User{% endif %}</div>
   <div class="card-body">
     <form method="post">
       {% csrf_token %}
-      <div class="row g-3">
+      <div class="form-grid">
         {% for field in form %}
-          <div class="col-md-6">
+          <div>
             <label class="form-label">{{ field.label }}</label>
             {{ field }}
             {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
@@ -16,8 +26,10 @@
           </div>
         {% endfor %}
       </div>
-      <button class="btn btn-primary mt-4"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
-      <a href="{% url 'core:user_list' %}" class="btn btn-outline-secondary mt-4">Cancel</a>
+      <div class="form-card-footer">
+        <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save</button>
+        <a href="{% url 'core:user_list' %}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
     </form>
   </div>
 </div>

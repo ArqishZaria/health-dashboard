@@ -1,26 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Training Program Form{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>{% if object %}Edit{% else %}Add{% endif %} Training Program</h4>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Training &amp; Capacity Building</span>
+        <h1 class="ph-title">{% if object %}Edit{% else %}Add{% endif %} Training Program</h1>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="card col-lg-8 mx-auto">
   <div class="card-body">
     <form method="post">
       {% csrf_token %}
-      <div class="row g-3">
+      <div class="form-grid">
       {% for field in form %}
-        <div class="col-md-6">
+        <div{% if field.field.widget.input_type == "textarea" %} class="field-full"{% endif %}>
           <label class="form-label">{{ field.label }}</label>
           {{ field }}
           {% if field.errors %}<div class="text-danger small">{{ field.errors|striptags }}</div>{% endif %}
         </div>
       {% endfor %}
       </div>
-      <div class="text-center">
-        <button class="btn btn-primary mt-4">Save</button>
-        <a href="{% url 'dashboard:training_list' %}" class="btn btn-outline-secondary mt-4">Cancel</a>
+      <div class="form-card-footer">
+        <button class="btn btn-primary">Save</button>
+        <a href="{% url 'dashboard:training_list' %}" class="btn btn-outline-secondary">Cancel</a>
       </div>
     </form>
   </div>

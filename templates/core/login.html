@@ -1,29 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Login - Health Programs DMS{% endblock %}
+{% block extra_head %}
+<style>
+main.container-fluid:has(.auth-shell) { max-width: none; padding: 0 !important; }
+</style>
+{% endblock %}
 {% block content %}
-<div class="auth-wrapper">
-  <div class="card auth-card shadow-lg p-4">
-    <div class="text-center mb-3">
-      <i class="fa-solid fa-heart-pulse fa-2x" style="color:var(--brand-primary)"></i>
-      <h4 class="mt-2 mb-0">Integrated Health Programs</h4>
-      <small class="text-muted">Data Management System</small>
+<div class="auth-shell">
+  <div class="auth-visual no-print">
+    <div class="auth-badge"><i class="fa-solid fa-heart-pulse"></i>Health Programs DMS</div>
+    <h1>Integrated Health Programs<br>Data Management System</h1>
+    <p>Centralized activity reporting, health screening, training &amp; capacity building,
+       case management, and role-scoped dashboards — in one place.</p>
+  </div>
+  <div class="auth-panel">
+    <div class="auth-card">
+      <div class="text-center mb-4">
+        <i class="fa-solid fa-heart-pulse fa-2x" style="color:var(--brand-primary)"></i>
+        <h4 class="mt-2 mb-0">Sign in to your account</h4>
+        <small class="text-muted">Enter your credentials to continue</small>
+      </div>
+      {% if form.errors %}
+        <div class="alert alert-danger py-2">Invalid username or password.</div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          {{ form.username }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          {{ form.password }}
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Sign In</button>
+        <input type="hidden" name="next" value="{{ next }}">
+      </form>
     </div>
-    {% if form.errors %}
-      <div class="alert alert-danger py-2">Invalid username or password.</div>
-    {% endif %}
-    <form method="post">
-      {% csrf_token %}
-      <div class="mb-3">
-        <label class="form-label">Username</label>
-        {{ form.username }}
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Password</label>
-        {{ form.password }}
-      </div>
-      <button type="submit" class="btn btn-primary w-100">Sign In</button>
-      <input type="hidden" name="next" value="{{ next }}">
-    </form>
   </div>
 </div>
 {% endblock %}

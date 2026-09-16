@@ -1,17 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Activity Reports{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4>Activity Reports</h4>
-  <div class="page-actions">
-    <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-arrow-up me-1"></i>Bulk Upload</a>
-    <a href="{% url 'dashboard:activity_export' %}" class="btn btn-outline-success btn-sm">Export CSV</a>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Activity Reporting</span>
+        <h1 class="ph-title">Activity Reports</h1>
+      </div>
+    </div>
+    <div class="ph-actions">
+      <a href="{% url 'dashboard:upload_add' %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-file-arrow-up me-1"></i>Bulk Upload</a>
+      <a href="{% url 'dashboard:activity_export' %}" class="btn btn-outline-success btn-sm">Export CSV</a>
+    </div>
   </div>
 </div>
 <div class="card">
   <div class="card-body">
-    <form class="row g-2 mb-3 justify-content-center" method="get">
+    <form class="row g-2 mb-3" method="get">
       <div class="col-auto"><input type="text" name="q" class="form-control" placeholder="Search activity/venue" value="{{ request.GET.q }}"></div>
       <div class="col-auto"><button class="btn btn-outline-secondary">Search</button></div>
     </form>

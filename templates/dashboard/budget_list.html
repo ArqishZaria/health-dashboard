@@ -1,10 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Budget Allocations{% endblock %}
 {% block content %}
-<div class="page-header">
-  {% include "dashboard/_back_button.html" %}
-  <h4><i class="fa-solid fa-sack-dollar me-2"></i>Budget Allocations</h4>
-  <div class="page-subtitle">Managed via Django Admin for National Admins; shown here read-only.</div>
+<div class="ph">
+  <div class="ph-row">
+    <div class="ph-left">
+      {% include "dashboard/_back_button.html" %}
+      <div class="ph-titles">
+        <span class="ph-eyebrow">Finance</span>
+        <h1 class="ph-title"><i class="fa-solid fa-sack-dollar me-2"></i>Budget Allocations</h1>
+        <p class="ph-subtitle">Managed via Django Admin for National Admins; shown here read-only.</p>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="card">
   <div class="table-responsive">

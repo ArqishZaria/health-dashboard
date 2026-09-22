@@ -128,7 +128,7 @@ def _overview_data(request):
             screening_jk_totals[jk_name or "Unspecified"] += c
         for portfolio_name, c in qs.values_list("program__portfolio__name").annotate(c=Count("id")):
             screening_portfolio_totals[portfolio_name or "Unspecified"] += c
-        labels, values = an.monthly_trend(qs, date_field="screening_date")
+        labels, values = an.trend_for_filters(qs, filters, date_field="screening_date")        
         for label, v in zip(labels, values):
             screening_monthly_totals[label] += v
 
@@ -195,13 +195,10 @@ def _overview_data(request):
     age_gender_qs = participants.filter(id__in=screened_participant_ids)
     age_labels, male_series, female_series, other_series = an.age_gender_breakdown(age_gender_qs)
 
-    act_labels, act_values = an.monthly_trend(activities, date_field="date")
-    train_labels, train_values = an.monthly_trend(trainings, date_field="date")
-    case_labels, case_values = an.monthly_trend(cases, date_field="referral_date")
+    act_labels, act_values = an.trend_for_filters(activities, filters, date_field="date")
+    train_labels, train_values = an.trend_for_filters(trainings, filters, date_field="date")
+    case_labels, case_values = an.trend_for_filters(cases, filters, date_field="referral_date")
     screening_month_values = [screening_monthly_totals.get(label, 0) for label in act_labels]
-
-    year_labels, year_activity_values = an.yearly_trend(activities, date_field="date")
-    _, year_training_values = an.yearly_trend(trainings, date_field="date")
 
     # Budget utilization - scope only, NOT filtered by the dashboard filters
     allocations = scope_budget_qs(user, BudgetAllocation.objects.all())
@@ -242,7 +239,6 @@ def _overview_data(request):
         "combo_month_labels": act_labels, "combo_activity_values": act_values,
         "combo_training_values": train_values, "combo_case_values": case_values,
         "combo_screening_values": screening_month_values,
-        "year_labels": year_labels, "year_activity_values": year_activity_values, "year_training_values": year_training_values,
         "region_labels": [r["region"] for r in region_combo_rows[:10]],
         "region_values": [r["total"] for r in region_combo_rows[:10]],
         "screening_labels": [s["label"] for s in screening_breakdown],
@@ -358,9 +354,7 @@ def _activity_data(request):
     region_labels, region_values = an.region_wise(qs)
     local_labels, local_values = an.local_council_wise(qs, limit=5)
     jk_labels, jk_values = an.jamat_khana_wise(qs, limit=5)
-    month_labels, month_values = an.monthly_trend(qs, date_field="date")
-    year_labels, year_values = an.yearly_trend(qs, date_field="date")
-
+    month_labels, month_values = an.trend_for_filters(qs, filters, date_field="date")
     allocations = scope_budget_qs(
         user, BudgetAllocation.objects.filter(portfolio_id__in=base_qs.values_list("portfolio_id", flat=True).distinct())
     )
@@ -383,7 +377,6 @@ def _activity_data(request):
         "local_labels": local_labels, "local_values": local_values,
         "jk_labels": jk_labels, "jk_values": jk_values,
         "month_labels": month_labels, "month_values": month_values,
-        "year_labels": year_labels, "year_values": year_values,
         "records": qs.select_related("region", "portfolio", "program").order_by("-date"),
     }
 
@@ -396,7 +389,7 @@ class ActivityReportDashboardView(LoginRequiredMixin, TemplateView):
         data = _activity_data(self.request)
         for key in ("program_labels", "program_values", "portfolio_labels", "portfolio_values",
                     "region_labels", "region_values", "local_labels", "local_values", "jk_labels", "jk_values",
-                    "month_labels", "month_values", "year_labels", "year_values"):
+                    "month_labels", "month_values"):
             ctx[key] = an.chart_json(data[key])
         ctx.update({k: v for k, v in data.items() if k not in ctx})
         ctx.update(_geo_filter_context(self.request))
@@ -468,7 +461,6 @@ class ExportActivityPDFView(LoginRequiredMixin, View):
         ]
         charts = [
             {"type": "line", "title": "Monthly Trend", "labels": data["month_labels"], "values": data["month_values"]},
-            {"type": "bar", "title": "Yearly Trend", "labels": data["year_labels"], "values": data["year_values"]},
             {"type": "pie", "title": "Portfolio-wise Breakdown", "labels": data["portfolio_labels"], "values": data["portfolio_values"]},
             {"type": "barh", "title": "Top Programs", "labels": data["program_labels"], "values": data["program_values"]},
         ]
@@ -500,7 +492,6 @@ def _screening_data(request):
     local_totals = defaultdict(int)
     jk_totals = defaultdict(int)
     monthly_totals = defaultdict(int)
-    yearly_totals = defaultdict(int)
     all_participant_ids = set()
     month_label_order = []
 
@@ -525,15 +516,11 @@ def _screening_data(request):
             local_totals[lc_name or "Unspecified"] += c
         for jk_name, c in qs.exclude(jamat_khana__isnull=True).values_list("jamat_khana__name").annotate(c=Count("id")):
             jk_totals[jk_name or "Unspecified"] += c
-        m_labels, m_values = an.monthly_trend(qs, date_field="screening_date")
+        m_labels, m_values = an.trend_for_filters(qs, filters, date_field="screening_date")
         if not month_label_order:
             month_label_order = m_labels
         for label, v in zip(m_labels, m_values):
             monthly_totals[label] += v
-        y_labels, y_values = an.yearly_trend(qs, date_field="screening_date")
-        for label, v in zip(y_labels, y_values):
-            yearly_totals[label] += v
-
     participants = scope_qs(user, Participant.objects.filter(id__in=all_participant_ids))
     age_labels, male_series, female_series, other_series = an.age_gender_breakdown(participants)
 
@@ -545,8 +532,6 @@ def _screening_data(request):
     rows = sorted(rows, key=lambda r: -r["count"])
     month_labels = month_label_order or an.monthly_trend(Participant.objects.none(), date_field="created_at")[0]
     month_values = [monthly_totals.get(l, 0) for l in month_labels]
-    year_labels_sorted = sorted(yearly_totals.keys())
-    year_values = [yearly_totals[y] for y in year_labels_sorted]
 
     local_sorted = sorted(local_totals.items(), key=lambda kv: -kv[1])[:5]
     jk_sorted = sorted(jk_totals.items(), key=lambda kv: -kv[1])[:5]
@@ -567,7 +552,6 @@ def _screening_data(request):
         "local_labels": [x[0] for x in local_sorted], "local_values": [x[1] for x in local_sorted],
         "jk_labels": [x[0] for x in jk_sorted], "jk_values": [x[1] for x in jk_sorted],
         "month_labels": month_labels, "month_values": month_values,
-        "year_labels": year_labels_sorted, "year_values": year_values,
     }
 
 
@@ -580,7 +564,7 @@ class ScreeningDashboardView(LoginRequiredMixin, TemplateView):
         for key in ("labels", "values", "gender_labels", "gender_values", "age_labels", "male_series",
                     "female_series", "other_series", "region_labels", "region_values",
                     "local_labels", "local_values", "jk_labels", "jk_values", "month_labels",
-                    "month_values", "year_labels", "year_values"):
+                    "month_values"):
             ctx[key] = an.chart_json(data[key])
         ctx.update({k: v for k, v in data.items() if k not in ctx})
         ctx.update(_geo_filter_context(self.request))
@@ -734,8 +718,7 @@ def _training_data(request):
     region_labels, region_values = an.region_wise(qs)
     local_labels, local_values = an.local_council_wise(qs, limit=5)
     jk_labels, jk_values = an.jamat_khana_wise(qs, limit=5)
-    month_labels, month_values = an.monthly_trend(qs, date_field="date")
-    year_labels, year_values = an.yearly_trend(qs, date_field="date")
+    month_labels, month_values = an.trend_for_filters(qs, filters, date_field="date")
 
     attendance_qs = TrainingAttendance.objects.filter(training__in=qs)
     by_status = attendance_qs.values("attendance_status").annotate(c=Count("id"))
@@ -771,7 +754,6 @@ def _training_data(request):
         "local_labels": local_labels, "local_values": local_values,
         "jk_labels": jk_labels, "jk_values": jk_values,
         "month_labels": month_labels, "month_values": month_values,
-        "year_labels": year_labels, "year_values": year_values,
         "attendance_labels": attendance_labels, "attendance_values": attendance_values,
         "records": qs.select_related("region", "portfolio", "program").order_by("-date"),
     }
@@ -785,7 +767,7 @@ class TrainingDashboardView(LoginRequiredMixin, TemplateView):
         data = _training_data(self.request)
         for key in ("portfolio_labels", "portfolio_values", "program_labels", "program_values", "region_labels",
                     "region_values", "local_labels", "local_values", "jk_labels", "jk_values",
-                    "month_labels", "month_values", "year_labels", "year_values",
+                    "month_labels", "month_values",
                     "attendance_labels", "attendance_values"):
             ctx[key] = an.chart_json(data[key])
         ctx.update({k: v for k, v in data.items() if k not in ctx})
@@ -871,7 +853,6 @@ class ExportTrainingPDFView(LoginRequiredMixin, View):
         ]
         charts = [
             {"type": "line", "title": "Monthly Trend", "labels": data["month_labels"], "values": data["month_values"]},
-            {"type": "bar", "title": "Yearly Trend", "labels": data["year_labels"], "values": data["year_values"]},
             {"type": "pie", "title": "Attendance Status Breakdown", "labels": data["attendance_labels"], "values": data["attendance_values"]},
             {"type": "barh", "title": "Top Programs", "labels": data["program_labels"], "values": data["program_values"]},
         ]
@@ -901,8 +882,7 @@ def _case_data(request):
     region_labels, region_values = an.region_wise(qs)
     local_labels, local_values = an.local_council_wise(qs, limit=5)
     jk_labels, jk_values = an.jamat_khana_wise(qs, limit=5)
-    month_labels, month_values = an.monthly_trend(qs, date_field="referral_date")
-    year_labels, year_values = an.yearly_trend(qs, date_field="referral_date")
+    month_labels, month_values = an.trend_for_filters(qs, filters, date_field="referral_date")    
     by_source = list(qs.values("referral_source").annotate(c=Count("id")).order_by("-c")[:10])
 
     closed_with_dates = qs.filter(current_status="CLOSED").annotate(
@@ -932,7 +912,6 @@ def _case_data(request):
         "local_labels": local_labels, "local_values": local_values,
         "jk_labels": jk_labels, "jk_values": jk_values,
         "month_labels": month_labels, "month_values": month_values,
-        "year_labels": year_labels, "year_values": year_values,
         "source_labels": [s["referral_source"] or "Unspecified" for s in by_source], "source_values": [s["c"] for s in by_source],
         "by_manager": by_manager,
         "records": qs.select_related("participant", "region").order_by("-referral_date"),
@@ -947,7 +926,7 @@ class CaseDashboardView(LoginRequiredMixin, TemplateView):
         data = _case_data(self.request)
         for key in ("status_labels", "status_values", "priority_labels", "priority_values", "region_labels",
                     "region_values", "local_labels", "local_values", "jk_labels", "jk_values",
-                    "month_labels", "month_values", "year_labels", "year_values",
+                    "month_labels", "month_values",
                     "source_labels", "source_values"):
             ctx[key] = an.chart_json(data[key])
         ctx.update({k: v for k, v in data.items() if k not in ctx})

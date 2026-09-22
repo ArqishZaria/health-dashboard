@@ -10,7 +10,7 @@ view.
 import calendar
 import json
 from collections import OrderedDict, defaultdict
-
+import datetime
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
 
@@ -22,6 +22,61 @@ AGE_BUCKETS = [
     (61, 200, "61+"),
 ]
 
+def daily_trend(queryset, date_field, date_from, date_to):
+    """Day-by-day counts between date_from and date_to (inclusive)."""
+    if not date_from or not date_to:
+        return monthly_trend(queryset, date_field=date_field)
+    buckets = OrderedDict()
+    d = date_from
+    one_day = datetime.timedelta(days=1)
+    while d <= date_to:
+        buckets[d] = 0
+        d += one_day
+
+    rows = queryset.values(date_field).annotate(c=Count("id"))
+    for row in rows:
+        key = row[date_field]
+        if key in buckets:
+            buckets[key] = row["c"]
+
+    labels = [d.strftime("%d %b") for d in buckets.keys()]
+    values = list(buckets.values())
+    return labels, values
+
+
+def year_month_trend(queryset, date_field, year):
+    """Jan-Dec counts for a specific year."""
+    buckets = OrderedDict((m, 0) for m in range(1, 13))
+    field_year = f"{date_field}__year"
+    field_month = f"{date_field}__month"
+    rows = queryset.filter(**{field_year: year}).values(field_month).annotate(c=Count("id"))
+    for row in rows:
+        key = row[field_month]
+        if key in buckets:
+            buckets[key] = row["c"]
+
+    labels = [calendar.month_abbr[m] for m in buckets.keys()]
+    values = list(buckets.values())
+    return labels, values
+
+
+def trend_for_filters(queryset, filters, date_field="date"):
+    """
+    Adaptive replacement for calling monthly_trend() directly on every
+    dashboard's "Trend" chart:
+      - No year selected      -> last 12 months up to the current month.
+      - Year selected only    -> Jan through Dec of that year.
+      - Year + month selected -> day-by-day across that specific month.
+    """
+    if getattr(filters, "year", None) and getattr(filters, "month", None):
+        return daily_trend(queryset, date_field, filters.date_from, filters.date_to)
+    if getattr(filters, "year", None):
+        try:
+            year = int(filters.year)
+        except (TypeError, ValueError):
+            return monthly_trend(queryset, date_field=date_field)
+        return year_month_trend(queryset, date_field, year)
+    return monthly_trend(queryset, date_field=date_field, months_back=12)
 
 def age_bucket_label(age):
     if age is None:

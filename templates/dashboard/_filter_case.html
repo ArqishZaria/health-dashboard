@@ -4,7 +4,7 @@
       <div class="col-6 col-md-2">
         <label class="form-label small mb-1">Year</label>
         <select name="year" class="form-select form-select-sm">
-          <option value="">All (last 12 mo.)</option>
+          <option value="">All time </option>
           {% for y in year_options %}
             <option value="{{ y }}" {% if filters.year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
           {% endfor %}

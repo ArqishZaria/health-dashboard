@@ -106,21 +106,42 @@ new Chart(document.getElementById('progChart'), { type: 'bar', data: { labels: {
 const ageLabels = {{ age_labels|safe }};
 const maleRaw = {{ male_series|safe }};
 const femaleRaw = {{ female_series|safe }};
+const pyramidMax = Math.max(1, ...maleRaw, ...femaleRaw);
 new Chart(document.getElementById('ageChart'), {
   type: 'bar',
   data: {
     labels: ageLabels,
     datasets: [
-      { label: 'Male', data: maleRaw.map(v => -v), backgroundColor: '#0b5d63' },
-      { label: 'Female', data: femaleRaw, backgroundColor: '#e8a33d' },
+      { label: 'Male', data: maleRaw.map(v => -v), backgroundColor: '#0b5d63', borderRadius: 3, categoryPercentage: 0.7, barPercentage: 0.9 },
+      { label: 'Female', data: femaleRaw, backgroundColor: '#e8a33d', borderRadius: 3, categoryPercentage: 0.7, barPercentage: 0.9 },
     ]
   },
   options: {
     indexAxis: 'y',
-    scales: { x: { ticks: { callback: v => Math.abs(v) }, stacked: true }, y: { stacked: true } },
-    plugins: { tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${Math.abs(ctx.raw)}` } } }
-  }
+    scales: {
+      x: {
+        stacked: true,
+        min: -pyramidMax * 1.15,
+        max: pyramidMax * 1.15,
+        ticks: { callback: v => Math.abs(v) },
+        title: { display: true, text: 'Participants' },
+        grid: { color: '#eef3f3' },
+      },
+      y: { stacked: true, grid: { display: false } },
+    },
+    plugins: {
+      title: { display: true, text: 'Population Pyramid — Age Group & Gender', font: { size: 13, weight: '700' }, color: '#16232a', padding: { bottom: 12 } },
+      legend: { position: 'bottom' },
+      tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${Math.abs(ctx.raw)}` } },
+      datalabels: {
+        display: true,
+        color: '#fff',
+        font: { weight: '700', size: 10 },
+        formatter: v => Math.abs(v) > 0 ? Math.abs(v) : '',
+        anchor: 'center',
+      },
+    },
+  },
 });
-new Chart(document.getElementById('genderChart'), { type: 'pie', data: { labels: {{ gender_labels|safe }}, datasets: [{ data: {{ gender_values|safe }}, backgroundColor: ['#0b5d63','#e8a33d','#607d8b'] }] } });
-</script>
+new Chart(document.getElementById('genderChart'), { type: 'pie', data: { labels: {{ gender_labels|safe }}, datasets: [{ data: {{ gender_values|safe }}, backgroundColor: ['#0b5d63','#e8a33d','#607d8b'] }] } });</script>
 {% endblock %}

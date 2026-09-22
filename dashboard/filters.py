@@ -106,15 +106,11 @@ class DashboardFilters:
                 return first, last, f"Year {y}"
             except ValueError:
                 pass
-        # Default: last 12 months up to today
-        start_month = today.month - 11
-        start_year = today.year
-        while start_month <= 0:
-            start_month += 12
-            start_year -= 1
-        start = datetime.date(start_year, start_month, 1)
-        return start, today, "Last 12 months"
-
+        # Default: no date filter at all - every dashboard's KPIs/breakdowns
+        # reflect all-time data in the user's scope until a period filter is
+        # applied, at which point apply() narrows it to that range.
+        return None, None, "All Time"
+    
     @property
     def is_active(self):
         return bool(self.raw)

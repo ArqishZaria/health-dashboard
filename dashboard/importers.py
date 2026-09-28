@@ -47,8 +47,8 @@ def normalize_header(h):
 # the Kobo and AKHSP templates supplied for the 10 screening tools.
 ALIASES = {
     "date": ["date", "date_of_screening", "date_of_examination", "date_of_assessment", "start", "screening_date"],
+    "month": ["month", "months"],   # <-- NEW: "Month" / "Months" column next to the Date column
     "region": ["region"],
-
     "local_council": ["local_council", "local", "council", "jurisdiction"],  # Mammogram uses "Jurisdiction"
 
     "jamat_khana": [
@@ -393,43 +393,62 @@ def to_bool(value):
     return str(value).strip().lower() in TRUE_VALUES
 
 
-DATE_FORMATS = ("%d-%m-%Y", "%Y-%m-%d %H:%M:%S")
 DATE_FORMAT_HINT = "DD-MM-YYYY (e.g. 05-03-2026)"
 
 
-def parse_date(value, field_label="Date"):
+def parse_date(value, field_label="Date", month_hint=None):
     """
-    STRICT date parsing - exactly one human-entered format is accepted:
-    DD-MM-YYYY (e.g. 05-03-2026). The second accepted pattern,
-    YYYY-MM-DD HH:MM:SS, isn't a second "allowed format" for typers - it's
-    the literal string pandas/openpyxl produce for a genuine Excel date
-    cell regardless of that cell's display format, so it has to stay
-    accepted or every real Excel date column would be rejected outright.
-    Anything else - other separators, month-first/ISO text like
-    "2026-03-05", an invalid calendar date (e.g. 29 Feb in a non-leap
-    year), or a blank cell - is REJECTED for that row with a clear error,
-    rather than silently defaulting to today's date. Bad dates must be
-    fixed and re-uploaded, not guessed at.
+    Parses the Date column, allowing any of FLEXIBLE_DATE_FORMATS (sources
+    differ on day-first vs month-first and on separators). Because that
+    ordering is genuinely ambiguous for a raw value like "03-04-2026", we
+    cross-check against the adjacent "Month" column (month_hint) whenever
+    one is supplied:
+      - If the parsed date's month disagrees with month_hint, the Month
+        column is treated as authoritative: the month is overridden with
+        month_hint, keeping the parsed day/year (this is exactly the
+        MM-DD vs DD-MM confusion the Month column is there to resolve).
+      - If nothing in FLEXIBLE_DATE_FORMATS matches, the row is rejected
+        with a clear error, same as before - we never guess a date from
+        nothing.
+    The result is always the canonical DD-MM-YYYY interpretation of the
+    row's Date + Month columns (Django's DateField stores a real date
+    object; DD-MM-YYYY is the format this normalization guarantees and
+    the format the date is echoed back in across the app).
     """
+    parsed = None
     if isinstance(value, datetime.datetime):
-        return value.date()
-    if isinstance(value, datetime.date):
-        return value
+        parsed = value.date()
+    elif isinstance(value, datetime.date):
+        parsed = value
+    else:
+        text = str(value).strip() if value is not None else ""
+        if text:
+            for fmt in FLEXIBLE_DATE_FORMATS:
+                try:
+                    parsed = datetime.datetime.strptime(text, fmt).date()
+                    break
+                except ValueError:
+                    continue
 
-    text = str(value).strip() if value is not None else ""
-    if not text:
-        raise ImportError_(f"{field_label} is required and must be in {DATE_FORMAT_HINT} format.")
+    if parsed is None:
+        raise ImportError_(
+            f"{field_label} '{value}' is not a valid/recognised date. "
+            f"Expected {DATE_FORMAT_HINT} (day-first) or a similar "
+            f"unambiguous format; if unsure, fill the 'Month' column too "
+            f"so it can be used to resolve the date."
+        )
 
-    for fmt in DATE_FORMATS:
+    month_num = _parse_month_hint(month_hint)
+    if month_num and parsed.month != month_num:
         try:
-            return datetime.datetime.strptime(text, fmt).date()
+            parsed = parsed.replace(month=month_num)
         except ValueError:
-            continue
+            # e.g. parsed day=31 doesn't exist in month_num
+            last_day = calendar.monthrange(parsed.year, month_num)[1]
+            parsed = parsed.replace(month=month_num, day=min(parsed.day, last_day))
 
-    raise ImportError_(
-        f"{field_label} '{text}' is not a valid date in the required {DATE_FORMAT_HINT} format "
-        f"(other formats/separators, e.g. YYYY-MM-DD or MM-DD-YYYY, are not accepted)."
-    )
+    return parsed
+
 
 def get_geo(region_name, local_council_name, jamat_khana_name):
     """
@@ -585,7 +604,11 @@ def import_screening_form(df, model_key, user):
                     region=region,
                     local_council=local_council,
                     jamat_khana=jamat_khana,
-                    screening_date=parse_date(canonical.get("date"), field_label="Date of Screening"),
+                    screening_date=parse_date(
+                        canonical.get("date"),
+                        field_label="Date of Screening",
+                        month_hint=canonical.get("month"),   
+                    ),
                     source=UploadBatch.FormType(model_key).label,
                     referred=to_bool(canonical.get("referred")),
                     reason_for_referral=canonical.get("reason_for_referral", "")[:250],
@@ -838,3 +861,46 @@ def build_geography_reference(user):
     wb.save(buf)
     buf.seek(0)
     return buf
+
+
+
+import calendar   # add to the existing import block
+
+MONTH_NAME_TO_NUM = {
+    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+    "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9,
+    "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+}
+
+
+def _parse_month_hint(value):
+    """Resolves the adjacent 'Month'/'Months' column into a 1-12 month
+    number. Accepts a bare number ('3', '03'), a month name ('March',
+    'Mar'), or 'Month YYYY' style text ('March 2026') - only the month
+    component is used. Returns None if it can't be determined."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    try:
+        n = int(float(text))
+        if 1 <= n <= 12:
+            return n
+    except (ValueError, TypeError):
+        pass
+    first_word = re.split(r"[\s\-/]+", text)[0]
+    return MONTH_NAME_TO_NUM.get(first_word)
+
+
+# Every format we'll try against the raw Date column, in order. Unlike the
+# old strict "DD-MM-YYYY only" rule, the date column is now allowed to
+# arrive in any of these - ambiguity between them is resolved below using
+# the adjacent Month column.
+FLEXIBLE_DATE_FORMATS = (
+    "%d-%m-%Y", "%d/%m/%Y", "%m-%d-%Y", "%m/%d/%Y",
+    "%Y-%m-%d", "%Y/%m/%d", "%d.%m.%Y",
+    "%d %b %Y", "%d %B %Y", "%b %d, %Y", "%B %d, %Y",
+    "%Y-%m-%d %H:%M:%S",   # genuine Excel date cell, as produced by pandas/openpyxl
+)

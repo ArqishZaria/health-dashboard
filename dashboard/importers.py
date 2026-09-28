@@ -397,58 +397,32 @@ DATE_FORMAT_HINT = "DD-MM-YYYY (e.g. 05-03-2026)"
 
 
 def parse_date(value, field_label="Date", month_hint=None):
-    """
-    Parses the Date column, allowing any of FLEXIBLE_DATE_FORMATS (sources
-    differ on day-first vs month-first and on separators). Because that
-    ordering is genuinely ambiguous for a raw value like "03-04-2026", we
-    cross-check against the adjacent "Month" column (month_hint) whenever
-    one is supplied:
-      - If the parsed date's month disagrees with month_hint, the Month
-        column is treated as authoritative: the month is overridden with
-        month_hint, keeping the parsed day/year (this is exactly the
-        MM-DD vs DD-MM confusion the Month column is there to resolve).
-      - If nothing in FLEXIBLE_DATE_FORMATS matches, the row is rejected
-        with a clear error, same as before - we never guess a date from
-        nothing.
-    The result is always the canonical DD-MM-YYYY interpretation of the
-    row's Date + Month columns (Django's DateField stores a real date
-    object; DD-MM-YYYY is the format this normalization guarantees and
-    the format the date is echoed back in across the app).
-    """
-    parsed = None
     if isinstance(value, datetime.datetime):
-        parsed = value.date()
+        candidates = [value.date()]
     elif isinstance(value, datetime.date):
-        parsed = value
+        candidates = [value]
     else:
         text = str(value).strip() if value is not None else ""
+        candidates = []
         if text:
             for fmt in FLEXIBLE_DATE_FORMATS:
                 try:
-                    parsed = datetime.datetime.strptime(text, fmt).date()
-                    break
+                    d = datetime.datetime.strptime(text, fmt).date()
                 except ValueError:
                     continue
-
-    if parsed is None:
+                if d not in candidates:
+                    candidates.append(d)
+    if not candidates:
         raise ImportError_(
-            f"{field_label} '{value}' is not a valid/recognised date. "
-            f"Expected {DATE_FORMAT_HINT} (day-first) or a similar "
-            f"unambiguous format; if unsure, fill the 'Month' column too "
-            f"so it can be used to resolve the date."
+            f"{field_label} '{value}' is not a recognised date. Expected {DATE_FORMAT_HINT}."
         )
-
     month_num = _parse_month_hint(month_hint)
-    if month_num and parsed.month != month_num:
-        try:
-            parsed = parsed.replace(month=month_num)
-        except ValueError:
-            # e.g. parsed day=31 doesn't exist in month_num
-            last_day = calendar.monthrange(parsed.year, month_num)[1]
-            parsed = parsed.replace(month=month_num, day=min(parsed.day, last_day))
-
-    return parsed
-
+    if month_num:
+        for d in candidates:
+            if d.month == month_num:
+                return d
+        raise ImportError_(f"{field_label} '{value}' does not match the Month column ('{month_hint}').")
+    return candidates[0]  # day-first wins when there is no Month column
 
 def get_geo(region_name, local_council_name, jamat_khana_name):
     """
@@ -520,16 +494,22 @@ get_or_create_geo = get_geo
 
 
 def read_dataframe(uploaded_file):
-    """Reads a single dataframe: the only sheet for CSV, or sheet 0 for a
-    single-sheet Excel file. For a multi-sheet Excel file, use
-    read_all_sheets() instead - this function intentionally stays "first
-    sheet only" for callers (e.g. a direct single-form-type re-read) that
-    already know they're dealing with one sheet."""
+    """Reads the first sheet (Excel) or the whole CSV from storage."""
+    storage = getattr(uploaded_file, "storage", None)
+    if storage is not None and getattr(uploaded_file, "name", None):
+        with storage.open(uploaded_file.name, "rb") as fh:
+            data = fh.read()
+    else:
+        data = uploaded_file.read()
     name = uploaded_file.name.lower()
     if name.endswith(".csv"):
-        return pd.read_csv(uploaded_file, dtype=str, keep_default_na=False)
-    return pd.read_excel(uploaded_file, dtype=str, keep_default_na=False)
-
+        for enc in ("utf-8-sig", "cp1252"):
+            try:
+                return pd.read_csv(io.BytesIO(data), dtype=str, keep_default_na=False, encoding=enc)
+            except UnicodeDecodeError:
+                continue
+        raise ValueError("Could not decode CSV file.")
+    return pd.read_excel(io.BytesIO(data), dtype=str, keep_default_na=False)
 
 
 def _drop_blank_rows(df):
@@ -609,7 +589,7 @@ def import_screening_form(df, model_key, user):
                         field_label="Date of Screening",
                         month_hint=canonical.get("month"),   
                     ),
-                    source=UploadBatch.FormType(model_key).label,
+                    source="Bulk Upload",
                     referred=to_bool(canonical.get("referred")),
                     reason_for_referral=canonical.get("reason_for_referral", "")[:250],
                     risk_category=infer_risk_category(leftover),
@@ -742,16 +722,6 @@ def _dispatch_import(form_type, df, user):
 
 
 def process_upload_batch(batch: UploadBatch):
-    """
-    Entry point called by the view / management command to process a batch.
-
-    Always processes a single sheet — the first sheet of the uploaded
-    workbook for Excel files, or the only "sheet" for CSV — against the
-    Form Type the uploader manually selected. Every row still goes through
-    the full validation pipeline (required fields, strict date format,
-    geography cross-check against existing records) exactly as before;
-    only the automatic multi-tab detection has been removed.
-    """
     batch.status = UploadBatch.Status.PROCESSING
     batch.save(update_fields=["status"])
 
@@ -764,9 +734,16 @@ def process_upload_batch(batch: UploadBatch):
         batch.save(update_fields=["status", "error_log", "processed_at"])
         return batch
 
-    df = _drop_blank_rows(df)
-    batch.total_rows = len(df)
-    success, errors = _dispatch_import(batch.form_type, df, batch.created_by)
+    try:
+        df = _drop_blank_rows(df)
+        batch.total_rows = len(df)
+        success, errors = _dispatch_import(batch.form_type, df, batch.created_by)
+    except Exception as exc:
+        batch.status = UploadBatch.Status.FAILED
+        batch.error_log = [{"row": 0, "error": f"Import aborted: {exc}"}]
+        batch.processed_at = timezone.now()
+        batch.save(update_fields=["status", "error_log", "processed_at"])
+        return batch
 
     batch.success_count = success
     batch.error_count = len(errors)

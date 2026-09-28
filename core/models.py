@@ -1,6 +1,15 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.exceptions import ValidationError
+import re
+
+def _unique_code(model, base, max_len=20):
+    base = re.sub(r"[^A-Z0-9]+", "", (base or "").upper())[: max_len - 4] or "X"
+    code, n = base, 1
+    while model.objects.filter(code=code).exists():
+        n += 1
+        code = f"{base}{n}"
+    return code
 
 
 class Region(models.Model):
@@ -16,7 +25,7 @@ class Region(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.code:
-            self.code = self.name[:3].upper()
+            self.code = _unique_code(Region, self.name[:3])
         super().save(*args, **kwargs)
 
 
@@ -25,12 +34,18 @@ class LocalCouncil(models.Model):
     code = models.CharField(max_length=20, unique=True, blank=True)
     name = models.CharField(max_length=150)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name="local_councils")
+
     class Meta:
         ordering = ["region__name", "name"]
         unique_together = ("region", "name")
 
     def __str__(self):
         return f"{self.name} ({self.region.name})"
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = _unique_code(LocalCouncil, f"{self.region.code}{self.name[:8]}")
+        super().save(*args, **kwargs)
 
 
 class JamatKhana(models.Model):
@@ -52,6 +67,10 @@ class JamatKhana(models.Model):
     def region(self):
         return self.local_council.region
 
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = _unique_code(JamatKhana, f"{self.local_council.code}{self.name[:8]}")
+        super().save(*args, **kwargs)
 
 class Portfolio(models.Model):
     """Health Board portfolio, e.g. Health Screening, Training, Community Health."""

@@ -49,8 +49,17 @@
             <li><a class="dropdown-item" href="{% url 'dashboard:upload_list' %}"><i class="fa-solid fa-history me-1"></i>Upload History</a></li>
             <li><hr class="dropdown-divider"></li>
             {% endif %}
-            <li><a class="dropdown-item" href="{% url 'core:logout' %}">Logout</a></li>
-          </ul>
+            {% if can_manage_users %}
+            <li><a class="dropdown-item" href="{% url 'dashboard:budget_list' %}"><i class="fa-solid fa-sack-dollar me-1"></i>Budget Allocations</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'core:region_list' %}"><i class="fa-solid fa-map-location-dot me-1"></i>Regions &amp; Local Councils</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'core:user_list' %}"><i class="fa-solid fa-users-gear me-1"></i>Manage Users</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'core:audit_log' %}"><i class="fa-solid fa-clipboard-list me-1"></i>Audit Log</a></li>
+            <li><hr class="dropdown-divider"></li>
+            {% endif %}
+            <li><a class="dropdown-item" href="{% url 'core:logout' %}">Logout</a></li>          </ul>
         </li>
       </ul>
     </div>

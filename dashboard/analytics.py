@@ -96,10 +96,9 @@ def pct(numerator, denominator):
         return 0.0
     return round((numerator / denominator) * 100, 1)
 
-
 def chart_json(values):
-    return json.dumps(list(values))
-
+    return (json.dumps(list(values))
+            .replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"))
 
 def age_gender_breakdown(participant_qs):
     """Returns (age_labels, male_series, female_series, other_series) aligned

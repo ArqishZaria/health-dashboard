@@ -37,6 +37,12 @@ from .reporting import build_dashboard_pdf
 UPLOADER_ROLES = ("NATIONAL", "REGIONAL", "LOCAL", "DATA_ENTRY")
 
 
+class WriteAccessMixin(RoleRequiredMixin):
+    """Blocks read-only Viewers (and anyone else outside UPLOADER_ROLES)
+    from create / edit / delete views."""
+    allowed_roles = UPLOADER_ROLES
+
+
 def _pdf_response(pdf_buffer, filename):
     response = HttpResponse(pdf_buffer.read(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -128,7 +134,7 @@ def _overview_data(request):
             screening_jk_totals[jk_name or "Unspecified"] += c
         for portfolio_name, c in qs.values_list("program__portfolio__name").annotate(c=Count("id")):
             screening_portfolio_totals[portfolio_name or "Unspecified"] += c
-        labels, values = an.trend_for_filters(qs, filters, date_field="screening_date")        
+        labels, values = an.trend_for_filters(qs, filters, date_field="screening_date")
         for label, v in zip(labels, values):
             screening_monthly_totals[label] += v
 
@@ -252,9 +258,10 @@ class OverviewDashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         data = _overview_data(self.request)
-        for key in ("age_labels", "male_series", "female_series", "other_series", "combo_month_labels",
-                    "combo_activity_values", "combo_training_values", "combo_case_values", "combo_screening_values",
-                    "year_labels", "year_activity_values", "year_training_values", "region_labels", "region_values",
+        for key in ("age_labels", "male_series", "female_series", "other_series",
+                    "combo_month_labels", "combo_activity_values", "combo_training_values",
+                    "combo_case_values", "combo_screening_values",
+                    "region_labels", "region_values",
                     "screening_labels", "screening_values"):
             data[key] = an.chart_json(data[key])
         ctx.update(data)
@@ -377,7 +384,7 @@ def _activity_data(request):
         "local_labels": local_labels, "local_values": local_values,
         "jk_labels": jk_labels, "jk_values": jk_values,
         "month_labels": month_labels, "month_values": month_values,
-        "records": qs.select_related("region", "portfolio", "program").order_by("-date"),
+        "records": qs.select_related("region", "local_council", "portfolio", "program").order_by("-date"),
     }
 
 
@@ -399,7 +406,7 @@ class ActivityReportDashboardView(LoginRequiredMixin, TemplateView):
         return ctx
 
 
-class ActivityReportCreateView(LoginRequiredMixin, CreateView):
+class ActivityReportCreateView(WriteAccessMixin, CreateView):
     """Backend retained for direct-URL/admin use; the UI no longer links to
     it (bulk upload + edit is the supported data-entry workflow)."""
     model = ActivityReport
@@ -415,7 +422,7 @@ class ActivityReportCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class ActivityReportUpdateView(LoginRequiredMixin, UpdateView):
+class ActivityReportUpdateView(WriteAccessMixin, UpdateView):
     model = ActivityReport
     form_class = ActivityReportForm
     template_name = "dashboard/activity_form.html"
@@ -430,13 +437,19 @@ class ActivityReportUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class ActivityReportDeleteView(LoginRequiredMixin, DeleteView):
+class ActivityReportDeleteView(WriteAccessMixin, DeleteView):
     model = ActivityReport
     template_name = "dashboard/confirm_delete.html"
     success_url = reverse_lazy("dashboard:activity_list")
 
     def get_queryset(self):
         return scope_qs(self.request.user, ActivityReport.objects.all())
+
+    def form_valid(self, form):
+        pk, description = self.object.pk, str(self.object)
+        response = super().form_valid(form)
+        log_action(self.request, AuditLog.Action.DELETE, "ActivityReport", pk, description)
+        return response
 
 
 class ExportActivitiesCSVView(LoginRequiredMixin, View):
@@ -607,7 +620,7 @@ class ParticipantListView(LoginRequiredMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
-        qs = scope_qs(self.request.user, Participant.objects.all())
+        qs = scope_qs(self.request.user, Participant.objects.select_related("region", "local_council"))
         q = self.request.GET.get("q")
         if q:
             qs = qs.filter(Q(full_name__icontains=q) | Q(cnic__icontains=q) | Q(participant_uid__icontains=q))
@@ -744,7 +757,7 @@ def _training_data(request):
         "total_trainings": total_trainings,
         "total_participants": total_participants,
         "avg_participants": round(total_participants / total_trainings, 1) if total_trainings else 0,
-        "avg_duration": round(qs.aggregate(a=Avg("duration_hours"))["a"] or 0, 1),
+        "avg_duration": round(float(qs.aggregate(a=Avg("duration_hours"))["a"] or 0), 1),
         "attendance_rate": an.pct(present_count, total_attendees),
         "budget": budget,
         "top_trainers": top_trainers,
@@ -755,7 +768,7 @@ def _training_data(request):
         "jk_labels": jk_labels, "jk_values": jk_values,
         "month_labels": month_labels, "month_values": month_values,
         "attendance_labels": attendance_labels, "attendance_values": attendance_values,
-        "records": qs.select_related("region", "portfolio", "program").order_by("-date"),
+        "records": qs.select_related("region", "local_council", "portfolio", "program").order_by("-date"),
     }
 
 
@@ -788,7 +801,7 @@ class TrainingListView(LoginRequiredMixin, ListView):
         return scope_qs(self.request.user, TrainingProgram.objects.select_related("portfolio", "program", "region")).order_by("-date")
 
 
-class TrainingCreateView(LoginRequiredMixin, CreateView):
+class TrainingCreateView(WriteAccessMixin, CreateView):
     """Backend retained for direct-URL/admin use; not linked from the UI."""
     model = TrainingProgram
     form_class = TrainingProgramForm
@@ -803,7 +816,7 @@ class TrainingCreateView(LoginRequiredMixin, CreateView):
         return response
 
 
-class TrainingUpdateView(LoginRequiredMixin, UpdateView):
+class TrainingUpdateView(WriteAccessMixin, UpdateView):
     model = TrainingProgram
     form_class = TrainingProgramForm
     template_name = "dashboard/training_form.html"
@@ -882,7 +895,7 @@ def _case_data(request):
     region_labels, region_values = an.region_wise(qs)
     local_labels, local_values = an.local_council_wise(qs, limit=5)
     jk_labels, jk_values = an.jamat_khana_wise(qs, limit=5)
-    month_labels, month_values = an.trend_for_filters(qs, filters, date_field="referral_date")    
+    month_labels, month_values = an.trend_for_filters(qs, filters, date_field="referral_date")
     by_source = list(qs.values("referral_source").annotate(c=Count("id")).order_by("-c")[:10])
 
     closed_with_dates = qs.filter(current_status="CLOSED").annotate(
@@ -899,6 +912,11 @@ def _case_data(request):
         "assigned_case_manager__username"
     ).annotate(c=Count("id")).order_by("-c")[:8])
 
+    # Human-readable labels for the status/priority charts (instead of raw
+    # codes like IN_PROGRESS).
+    status_display = dict(CaseRecord.Status.choices)
+    priority_display = dict(CaseRecord.Priority.choices)
+
     return {
         "filters": filters,
         "total_cases": total_cases,
@@ -906,8 +924,10 @@ def _case_data(request):
         "closed_cases": closed_cases,
         "closure_rate": an.pct(closed_cases, total_cases),
         "avg_days_to_closure": avg_days_to_closure,
-        "status_labels": [s["current_status"] for s in by_status], "status_values": [s["count"] for s in by_status],
-        "priority_labels": [p["priority_level"] for p in by_priority], "priority_values": [p["count"] for p in by_priority],
+        "status_labels": [status_display.get(s["current_status"], s["current_status"]) for s in by_status],
+        "status_values": [s["count"] for s in by_status],
+        "priority_labels": [priority_display.get(p["priority_level"], p["priority_level"]) for p in by_priority],
+        "priority_values": [p["count"] for p in by_priority],
         "region_labels": region_labels, "region_values": region_values,
         "local_labels": local_labels, "local_values": local_values,
         "jk_labels": jk_labels, "jk_values": jk_values,
@@ -956,7 +976,7 @@ class CaseListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class CaseCreateView(LoginRequiredMixin, CreateView):
+class CaseCreateView(WriteAccessMixin, CreateView):
     """Backend retained for direct-URL/admin use; not linked from the UI."""
     model = CaseRecord
     form_class = CaseRecordForm
@@ -986,7 +1006,7 @@ class CaseDetailView(LoginRequiredMixin, DetailView):
         return ctx
 
 
-class CaseFollowUpCreateView(LoginRequiredMixin, View):
+class CaseFollowUpCreateView(WriteAccessMixin, View):
     def post(self, request, pk):
         case = get_object_or_404(scope_qs(request.user, CaseRecord.objects.all()), pk=pk)
         form = CaseFollowUpForm(request.POST)
@@ -1002,7 +1022,7 @@ class CaseFollowUpCreateView(LoginRequiredMixin, View):
         return redirect("dashboard:case_detail", pk=pk)
 
 
-class CaseUpdateView(LoginRequiredMixin, UpdateView):
+class CaseUpdateView(WriteAccessMixin, UpdateView):
     model = CaseRecord
     form_class = CaseRecordForm
     template_name = "dashboard/case_form.html"
@@ -1034,8 +1054,8 @@ class ExportCasesCSVView(LoginRequiredMixin, View):
 class ExportCasePDFView(LoginRequiredMixin, View):
     def get(self, request):
         data = _case_data(request)
-        status_display = dict(CaseRecord.Status.choices)
-        priority_display = dict(CaseRecord.Priority.choices)
+        # status_labels / priority_labels are already human-readable
+        # (converted in _case_data), so they are used as-is here.
         kpis = [
             ("Total Cases", data["total_cases"]),
             ("Open / Follow-up", data["open_cases"]),
@@ -1044,8 +1064,8 @@ class ExportCasePDFView(LoginRequiredMixin, View):
         ]
         charts = [
             {"type": "line", "title": "Monthly Trend", "labels": data["month_labels"], "values": data["month_values"]},
-            {"type": "pie", "title": "By Status", "labels": [status_display.get(s, s) for s in data["status_labels"]], "values": data["status_values"]},
-            {"type": "bar", "title": "By Priority", "labels": [priority_display.get(p, p) for p in data["priority_labels"]], "values": data["priority_values"]},
+            {"type": "pie", "title": "By Status", "labels": data["status_labels"], "values": data["status_values"]},
+            {"type": "bar", "title": "By Priority", "labels": data["priority_labels"], "values": data["priority_values"]},
             {"type": "barh", "title": "Top Referral Sources", "labels": data["source_labels"], "values": data["source_values"]},
         ]
         tables = [
@@ -1099,7 +1119,6 @@ class DownloadUploadTemplateView(RoleRequiredMixin, View):
         if buf is None:
             messages.error(request, "Unknown form type - couldn't build a template for it.")
             return redirect("dashboard:upload_add")
-        label = dict(UploadBatch.FormType.choices).get(form_type, form_type)
         filename = f"{form_type}_template.xlsx"
         response = HttpResponse(
             buf.read(),
@@ -1155,6 +1174,13 @@ class UploadDetailView(RoleRequiredMixin, DetailView):
     model = UploadBatch
     template_name = "dashboard/upload_detail.html"
     context_object_name = "batch"
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = UploadBatch.objects.all()
+        if user.is_national or user.is_superuser:
+            return qs
+        return qs.filter(created_by=user)
 
 
 class DownloadGeographyReferenceView(RoleRequiredMixin, View):

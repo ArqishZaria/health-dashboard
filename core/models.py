@@ -13,7 +13,6 @@ def _unique_code(model, base, max_len=20):
 
 
 class Region(models.Model):
-    """Top-level geography. e.g. Karachi, Sindh, Punjab, etc."""
     name = models.CharField(max_length=150, unique=True)
     code = models.CharField(max_length=20, unique=True, blank=True)
 
@@ -30,7 +29,6 @@ class Region(models.Model):
 
 
 class LocalCouncil(models.Model):
-    """Local Council belongs to a Region."""
     code = models.CharField(max_length=20, unique=True, blank=True)
     name = models.CharField(max_length=150)
     region = models.ForeignKey(Region, on_delete=models.CASCADE, related_name="local_councils")
@@ -49,7 +47,6 @@ class LocalCouncil(models.Model):
 
 
 class JamatKhana(models.Model):
-    """Venue / Jamatkhana belongs to a Local Council."""
     code = models.CharField(max_length=20, unique=True, blank=True)
     name = models.CharField(max_length=150)
     local_council = models.ForeignKey(LocalCouncil, on_delete=models.CASCADE, related_name="jamat_khanas")
@@ -72,8 +69,8 @@ class JamatKhana(models.Model):
             self.code = _unique_code(JamatKhana, f"{self.local_council.code}{self.name[:8]}")
         super().save(*args, **kwargs)
 
+
 class Portfolio(models.Model):
-    """Health Board portfolio, e.g. Health Screening, Training, Community Health."""
     name = models.CharField(max_length=150, unique=True)
 
     class Meta:
@@ -82,9 +79,17 @@ class Portfolio(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        # Case-insensitive de-dup guard: prevents "Health screening" and
+        # "Health Screening" becoming two rows via bulk-upload / admin.
+        if not self.pk:
+            existing = Portfolio.objects.filter(name__iexact=self.name).first()
+            if existing:
+                self.pk = existing.pk
+        super().save(*args, **kwargs)
+
 
 class Program(models.Model):
-    """Program under a Portfolio, e.g. Cardiac Risk Assessment."""
     portfolio = models.ForeignKey(Portfolio, on_delete=models.CASCADE, related_name="programs")
     name = models.CharField(max_length=150)
 
@@ -94,6 +99,13 @@ class Program(models.Model):
 
     def __str__(self):
         return f"{self.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            existing = Program.objects.filter(portfolio=self.portfolio, name__iexact=self.name).first()
+            if existing:
+                self.pk = existing.pk
+        super().save(*args, **kwargs)
 
 
 class User(AbstractUser):
@@ -140,6 +152,12 @@ class User(AbstractUser):
 
     def clean(self):
         super().clean()
+        # Superusers (e.g. createsuperuser, which defaults role=DATA_ENTRY
+        # with no local council) are exempt from role/geography validation -
+        # otherwise they become un-editable in both Django Admin and the
+        # in-app user-management forms.
+        if self.is_superuser:
+            return
         if self.role == self.Role.REGIONAL and not self.region_id:
             raise ValidationError("Regional users must be assigned a Region.")
         if self.role in (self.Role.LOCAL, self.Role.DATA_ENTRY) and not self.local_council_id:
@@ -178,8 +196,6 @@ class User(AbstractUser):
 
 
 class AuditLog(models.Model):
-    """Generic audit trail for edits / uploads / logins across the system."""
-
     class Action(models.TextChoices):
         CREATE = "CREATE", "Create"
         UPDATE = "UPDATE", "Update"

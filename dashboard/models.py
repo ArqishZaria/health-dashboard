@@ -317,12 +317,6 @@ class CaseFollowUp(AuditedModel):
 # Bulk Excel/CSV Upload tracking
 # ---------------------------------------------------------------------------
 class BudgetAllocation(AuditedModel):
-    """
-    Planned budget per Portfolio (optionally narrowed to a Region) for a
-    given fiscal year. Compared against the actual `cost` recorded on
-    ActivityReport / TrainingProgram entries to compute Budget Utilization
-    on the dashboards.
-    """
     portfolio = models.ForeignKey(Portfolio, on_delete=models.CASCADE, related_name="budget_allocations")
     region = models.ForeignKey(
         Region, null=True, blank=True, on_delete=models.CASCADE, related_name="budget_allocations",
@@ -334,12 +328,14 @@ class BudgetAllocation(AuditedModel):
 
     class Meta:
         ordering = ["-fiscal_year", "portfolio__name"]
-        unique_together = ("portfolio", "region", "fiscal_year")
+        constraints = [
+            models.UniqueConstraint(fields=["portfolio", "region", "fiscal_year"], name="uniq_budget_regional"),
+            models.UniqueConstraint(fields=["portfolio", "fiscal_year"], condition=models.Q(region__isnull=True), name="uniq_budget_national"),
+        ]
 
     def __str__(self):
         scope = self.region.name if self.region else "All Regions"
         return f"{self.portfolio.name} - {scope} - FY{self.fiscal_year}"
-
 
 class UploadBatch(AuditedModel):
     class FormType(models.TextChoices):

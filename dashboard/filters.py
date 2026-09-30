@@ -1,31 +1,11 @@
 """
 Shared dashboard filter parsing.
-
-Every dashboard (Overview / Activity / Screening / Training / Case) accepts
-the same rich set of querystring filters so behaviour is predictable and
-"filterable to the smallest unit":
-
-  year, month, day          - cascading date filter (see _compute_date_range)
-  region                    - Region id
-  local_council              - Local Council id
-  jamat_khana                 - Jamatkhana id
-  portfolio                  - Portfolio id (Activity / Training)
-  program                    - Program id (Activity / Training)
-  screening_program           - screening model key (Screening dashboard only)
-  status, priority            - Case Management only
-  gender                     - M / F / O, wherever a Participant is involved
-
-Date filter cascading rule:
-  - nothing selected            -> last 12 months up to today
-  - year only                   -> the whole of that year
-  - year + month                -> the whole of that month
-  - year + month + day          -> that specific day only
-
-The same `DashboardFilters` instance is used to filter the on-screen
-analytics AND the CSV export, so what you see is exactly what you download.
-Budget Utilization intentionally ignores these filters (it is a fiscal-year
-figure, not a date-range one) and is computed from the user's role scope
-only.
+See original docstring for behaviour; this version fixes two bugs:
+  1. year+month+day was never reached because int(day) raised on an
+     ISO date string ("2026-03-05") and was silently swallowed.
+  2. region/local_council/jamat_khana/portfolio/program ids were passed
+     straight into filter(...) unvalidated, so a non-numeric value in the
+     querystring (typed or crafted) raised an uncaught ValueError -> 500.
 """
 import calendar
 import datetime
@@ -56,36 +36,63 @@ def year_choices():
     return list(range(current, current - 8, -1))
 
 
+def _safe_int_str(value):
+    """Returns the value back as a string only if it's a plain positive
+    integer id; otherwise None. Prevents ValueError crashes from
+    non-numeric querystring values reaching filter(id=...)."""
+    if value and value.isdigit():
+        return value
+    return None
+
+
 class DashboardFilters:
     def __init__(self, request):
         self.raw = {k: request.GET.get(k, "").strip() for k in FILTER_KEYS if request.GET.get(k, "").strip()}
-        self.year = self.raw.get("year") or None
-        self.month = self.raw.get("month") or None
-        self.day = self.raw.get("day") or None
-        self.region_id = self.raw.get("region") or None
-        self.local_council_id = self.raw.get("local_council") or None
-        self.jamat_khana_id = self.raw.get("jamat_khana") or None
-        self.portfolio_id = self.raw.get("portfolio") or None
-        self.program_id = self.raw.get("program") or None
+
+        self.region_id = _safe_int_str(self.raw.get("region"))
+        self.local_council_id = _safe_int_str(self.raw.get("local_council"))
+        self.jamat_khana_id = _safe_int_str(self.raw.get("jamat_khana"))
+        self.portfolio_id = _safe_int_str(self.raw.get("portfolio"))
+        self.program_id = _safe_int_str(self.raw.get("program"))
+
         self.screening_program = self.raw.get("screening_program") or None
         self.status = self.raw.get("status") or None
         self.priority = self.raw.get("priority") or None
-        self.gender = self.raw.get("gender") or None
+        self.gender = self.raw.get("gender") if self.raw.get("gender") in ("M", "F", "O") else None
+
+        # --- Date filter parsing -------------------------------------
+        # "day" arrives as an ISO date string (YYYY-MM-DD) from the HTML
+        # <input type="date">, NOT a day-of-month integer. Parse it as a
+        # full date first; year/month are then derived from it so the
+        # year+month+day cascade in _compute_date_range still works.
+        self.specific_date = None
+        raw_day = self.raw.get("day")
+        if raw_day:
+            try:
+                self.specific_date = datetime.date.fromisoformat(raw_day)
+            except ValueError:
+                self.specific_date = None
+
+        raw_year = _safe_int_str(self.raw.get("year"))
+        raw_month = _safe_int_str(self.raw.get("month"))
+        if self.specific_date:
+            self.year = str(self.specific_date.year)
+            self.month = str(self.specific_date.month)
+        else:
+            self.year = raw_year
+            self.month = raw_month if (raw_month and 1 <= int(raw_month) <= 12) else None
+
         self.date_from, self.date_to, self.period_label = self._compute_date_range()
 
     def _compute_date_range(self):
         today = timezone.localdate()
-        if self.year and self.month and self.day:
-            try:
-                d = datetime.date(int(self.year), int(self.month), int(self.day))
-                # Specific-date search can never be in the future, regardless
-                # of what the HTML date input's max= attribute allowed
-                # client-side (crafted URLs bypass that) - clamp to today.
-                if d > today:
-                    d = today
-                return d, d, f"{d:%d %b %Y}"
-            except ValueError:
-                pass
+
+        if self.specific_date:
+            d = self.specific_date
+            if d > today:
+                d = today
+            return d, d, f"{d:%d %b %Y}"
+
         if self.year and self.month:
             try:
                 y, m = int(self.year), int(self.month)
@@ -96,6 +103,7 @@ class DashboardFilters:
                 return first, last, f"{calendar.month_name[m]} {y}"
             except ValueError:
                 pass
+
         if self.year:
             try:
                 y = int(self.year)
@@ -106,11 +114,9 @@ class DashboardFilters:
                 return first, last, f"Year {y}"
             except ValueError:
                 pass
-        # Default: no date filter at all - every dashboard's KPIs/breakdowns
-        # reflect all-time data in the user's scope until a period filter is
-        # applied, at which point apply() narrows it to that range.
+
         return None, None, "All Time"
-    
+
     @property
     def is_active(self):
         return bool(self.raw)
@@ -190,5 +196,3 @@ def program_choices(portfolio_id=None):
     if portfolio_id:
         qs = qs.filter(portfolio_id=portfolio_id)
     return qs
-
-

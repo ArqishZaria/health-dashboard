@@ -50,7 +50,6 @@ ALIASES = {
     "month": ["month", "months"],   # <-- NEW: "Month" / "Months" column next to the Date column
     "region": ["region"],
     "local_council": ["local_council", "local", "council", "jurisdiction"],  # Mammogram uses "Jurisdiction"
-
     "jamat_khana": [
         "jamat_khana", "jammat_khana", "jamatkhana", "venue_jamatkhana", "venue", "center",
         "jamat_khana_venue",      # Adolescent: "Jamat Khana/Venue"
@@ -85,6 +84,7 @@ ALIASES = {
         "if_yes_please_select_reason_for_referral", "recommendations_additional_remarks",
         "refered_for",             # ICOPE: "Refered For"
     ],
+    "cost": ["cost", "actual_cost", "cost_utilized"],
 
     "remarks": [
         "remarks", "open_comments", "comments_if_any", "physician_s_recommendation",
@@ -148,9 +148,8 @@ COMMON_SCREENING_HEADERS = [
 ACTIVITY_REPORT_HEADERS = [
     "Date", "Region", "Local Council", "Jamat Khana", "Portfolio", "Program",
     "Name of Activity", "Description", "Number of Beneficiaries",
-    "Facilitator/Trainer", "Collaboration", "Remarks",
+    "Facilitator/Trainer", "Collaboration", "Cost", "Remarks",
 ]
-
 TRAINING_ATTENDANCE_HEADERS = [
     "Training Title", "Date", "Region", "Local Council", "Jamat Khana",
     "Portfolio", "Program", "Trainer Name", "Training Duration",
@@ -353,18 +352,29 @@ def map_row_to_canonical(row_dict):
 RISK_HINT_KEY_SUBSTRINGS = ("diagnosis", "finding", "risk_categ", "bp_bmi_status")
 
 
+import re as _re  # already imported as re at top of file; reuse it, this is just documenting the dependency
+
+_RISK_HIGH_RE = re.compile(r"\babnormal\b|\bhigh\b")
+_RISK_MODERATE_RE = re.compile(r"\bmoderate\b")
+_RISK_LOW_RE = re.compile(r"\bnormal\b|\blow\b")
+_NEGATION_RE = re.compile(r"\b(no|not|non|without|denies|negative)\b")
+
+
 def infer_risk_category(leftover):
     """
-    Best-effort risk categorization, read from columns already sitting in
-    `leftover` (i.e. columns that don't map to any other recognised field).
-    This NEVER removes anything from `leftover` - the raw value is always
-    still saved verbatim in the record's `details` JSON regardless of what
-    this function decides, so a wrong or missed inference never loses data,
-    it only affects the structured risk_category field used for dashboard
-    filtering/reporting.
+    Best-effort risk categorization from leftover columns (columns that
+    didn't map to any recognised field, e.g. "Diagnosis/Findings",
+    "Mammography Findings Normal/Abnormal"). NEVER removes anything from
+    `leftover` - the raw value is always still saved verbatim in the
+    record's `details` JSON regardless of what this function decides.
 
-    HIGH takes priority if multiple risk-hint columns disagree, since that's
-    the safer (more clinically conservative) reading of ambiguous data.
+    Uses word-boundary matching (not naive substring matching) so
+    "abnormality" doesn't false-match on "normal", and a simple negation
+    check so phrases like "No abnormality detected" or "Not referred"
+    don't get scored as HIGH just because "abnormal" appears in them.
+    HIGH still takes priority if multiple risk-hint columns disagree,
+    since that's the safer (more clinically conservative) reading of
+    ambiguous data - but only among genuinely positive findings.
     """
     found = None
     for key, value in leftover.items():
@@ -373,14 +383,16 @@ def infer_risk_category(leftover):
         text = str(value).strip().lower()
         if not text:
             continue
-        if "abnormal" in text or "high" in text:
+
+        negated = bool(_NEGATION_RE.search(text))
+
+        if _RISK_HIGH_RE.search(text) and not negated:
             return "HIGH"
-        if "moderate" in text:
+        if _RISK_MODERATE_RE.search(text) and not negated:
             found = found or "MODERATE"
-        elif "normal" in text or "low" in text:
+        elif _RISK_LOW_RE.search(text) or (negated and _RISK_HIGH_RE.search(text)):
             found = found or "LOW"
     return found or "UNKNOWN"
-
 
 TRUE_VALUES = {"yes", "y", "true", "1", "referred", "abnormal", "high"}
 
@@ -424,20 +436,13 @@ def parse_date(value, field_label="Date", month_hint=None):
         raise ImportError_(f"{field_label} '{value}' does not match the Month column ('{month_hint}').")
     return candidates[0]  # day-first wins when there is no Month column
 
-def get_geo(region_name, local_council_name, jamat_khana_name):
+def get_geo(region_name, local_council_name, jamat_khana_name, user=None):
     """
     Cross-checks Region / Local Council / Jamatkhana against records that
     already exist in the system - bulk uploads NEVER create new geography.
-
-    This keeps the reference geography clean (no typos or duplicate
-    Region/Local Council/Jamatkhana rows sneaking in through spreadsheet
-    uploads). New Regions/Local Councils must be added first via
-    "Regions & Local Councils" in the app (National Admins), and new
-    Jamatkhanas via Django Admin - then the bulk upload will resolve them
-    correctly.
-
-    Raises ImportError_ (caught by the caller, logged as a row-level error)
-    if a named Region/Local Council/Jamatkhana isn't found.
+    Also enforces the uploading user's role scope: a Regional Coordinator
+    or Local/Data-Entry user can only import rows into their own assigned
+    geography, even though this function has no other access control on it.
     """
     region_name = str(region_name).strip() if region_name is not None else ""
     if not region_name:
@@ -486,7 +491,23 @@ def get_geo(region_name, local_council_name, jamat_khana_name):
         except JamatKhana.MultipleObjectsReturned:
             jamat_khana = JamatKhana.objects.filter(local_council=local_council, name__iexact=jamat_khana_name).first()
 
+    if user is not None and not (user.is_superuser or user.is_national):
+        if user.role == user.Role.REGIONAL:
+            if user.region_id and region.id != user.region_id:
+                raise ImportError_(
+                    f"Row is outside your assigned scope: you can only upload data "
+                    f"for '{user.region}'."
+                )
+        elif user.local_council_id and local_council.id != user.local_council_id:
+            raise ImportError_(
+                f"Row is outside your assigned scope: you can only upload data "
+                f"for '{user.local_council}'."
+            )
+
     return region, local_council, jamat_khana
+
+
+get_or_create_geo = get_geo
 
 
 # Backwards-compatible alias in case anything still imports the old name.
@@ -537,7 +558,17 @@ def _clean(v):
 
 
 def import_screening_form(df, model_key, user):
-    """Generic importer for any of the 10 screening tools -> Participant + Screening record."""
+    """Generic importer for any of the 10 screening tools -> Participant + Screening record.
+
+    Fixes vs. the original:
+      - Long "Reason for Referral" text is no longer silently truncated and
+        lost at 250 chars; the overflow is preserved in `remarks` instead.
+      - Participants are de-duplicated on (CNIC, region) when CNIC is
+        present, or (full_name, date_of_birth/age, region) when it isn't,
+        so re-uploading the same file (or the same person appearing across
+        two screening sheets) doesn't create duplicate Participant rows.
+      - The uploading user's geography scope is enforced via get_geo().
+    """
     model = SCREENING_MODELS[model_key]
     success, errors = 0, []
 
@@ -552,7 +583,8 @@ def import_screening_form(df, model_key, user):
 
             with transaction.atomic():
                 region, local_council, jamat_khana = get_geo(
-                    canonical.get("region"), canonical.get("local_council"), canonical.get("jamat_khana")
+                    canonical.get("region"), canonical.get("local_council"), canonical.get("jamat_khana"),
+                    user=user,
                 )
 
                 age_val = canonical.get("age")
@@ -564,19 +596,50 @@ def import_screening_form(df, model_key, user):
                 gender_raw = (canonical.get("gender") or "").strip().upper()[:1]
                 gender = gender_raw if gender_raw in ("M", "F", "O") else "O"
 
-                participant = Participant.objects.create(
-                    region=region,
-                    local_council=local_council,
-                    jamat_khana=jamat_khana,
-                    full_name=canonical.get("full_name"),
-                    father_husband_name=canonical.get("father_husband_name", ""),
-                    cnic=canonical.get("cnic", ""),
-                    contact_number=canonical.get("contact_number", ""),
-                    gender=gender,
-                    age=age_val,
-                    venue=canonical.get("jamat_khana", ""),
-                    created_by=user,
-                )
+                cnic = canonical.get("cnic", "").strip()
+                full_name = canonical.get("full_name").strip()
+                dedup_qs = Participant.objects.filter(region=region)
+                existing = None
+                if cnic:
+                    existing = dedup_qs.filter(cnic=cnic).first()
+                else:
+                    existing = dedup_qs.filter(full_name__iexact=full_name, age=age_val).first()
+
+                if existing:
+                    participant = existing
+                    # Backfill any blank fields from this row without
+                    # overwriting data already on file.
+                    changed = False
+                    for field, val in (
+                        ("father_husband_name", canonical.get("father_husband_name", "")),
+                        ("contact_number", canonical.get("contact_number", "")),
+                        ("cnic", cnic),
+                    ):
+                        if val and not getattr(participant, field):
+                            setattr(participant, field, val)
+                            changed = True
+                    if changed:
+                        participant.save()
+                else:
+                    participant = Participant.objects.create(
+                        region=region,
+                        local_council=local_council,
+                        jamat_khana=jamat_khana,
+                        full_name=full_name,
+                        father_husband_name=canonical.get("father_husband_name", ""),
+                        cnic=cnic,
+                        contact_number=canonical.get("contact_number", ""),
+                        gender=gender,
+                        age=age_val,
+                        venue=canonical.get("jamat_khana", ""),
+                        created_by=user,
+                    )
+
+                reason = canonical.get("reason_for_referral", "")
+                remarks = canonical.get("remarks", "")
+                if len(reason) > 250:
+                    remarks = f"{remarks}\n[Full referral note] {reason}".strip()
+                    reason = reason[:247] + "..."
 
                 record_kwargs = dict(
                     participant=participant,
@@ -587,13 +650,13 @@ def import_screening_form(df, model_key, user):
                     screening_date=parse_date(
                         canonical.get("date"),
                         field_label="Date of Screening",
-                        month_hint=canonical.get("month"),   
+                        month_hint=canonical.get("month"),
                     ),
                     source="Bulk Upload",
                     referred=to_bool(canonical.get("referred")),
-                    reason_for_referral=canonical.get("reason_for_referral", "")[:250],
+                    reason_for_referral=reason,
                     risk_category=infer_risk_category(leftover),
-                    remarks=canonical.get("remarks", ""),
+                    remarks=remarks,
                     details=leftover,
                     created_by=user,
                 )
@@ -630,10 +693,17 @@ def import_activity_report(df, user):
 
             with transaction.atomic():
                 region, local_council, jamat_khana = get_geo(
-                    canonical.get("region"), canonical.get("local_council"), canonical.get("jamat_khana")
+                    canonical.get("region"), canonical.get("local_council"), canonical.get("jamat_khana"),
+                    user=user,
                 )
                 portfolio, _ = Portfolio.objects.get_or_create(name=canonical.get("portfolio") or "General")
                 program, _ = Program.objects.get_or_create(portfolio=portfolio, name=canonical.get("program") or "General")
+
+                cost_val = canonical.get("cost") or leftover.get("cost") or leftover.get("actual_cost") or 0
+                try:
+                    cost_val = float(cost_val)
+                except (ValueError, TypeError):
+                    cost_val = 0
 
                 ActivityReport.objects.create(
                     date=parse_date(canonical.get("date"), field_label="Date"),
@@ -645,6 +715,7 @@ def import_activity_report(df, user):
                     number_of_beneficiaries=_safe_int(canonical.get("number_of_beneficiaries")) or 0,
                     facilitator_trainer=canonical.get("facilitator_trainer", ""),
                     collaboration=canonical.get("collaboration", ""),
+                    cost=cost_val,
                     remarks=canonical.get("remarks", ""),
                     created_by=user,
                 )
@@ -658,6 +729,7 @@ def import_training_attendance(df, user):
     """Expects a `Training Title` column repeated per attendee row, plus attendee fields."""
     success, errors = 0, []
     training_cache = {}
+    valid_attendance = {"PRESENT", "ABSENT", "PARTIAL"}
     for idx, row in df.iterrows():
         row_num = idx + 2
         try:
@@ -669,12 +741,24 @@ def import_training_attendance(df, user):
 
             with transaction.atomic():
                 region, local_council, jamat_khana = get_geo(
-                    canonical.get("region"), canonical.get("local_council"), canonical.get("jamat_khana")
+                    canonical.get("region"), canonical.get("local_council"), canonical.get("jamat_khana"),
+                    user=user,
                 )
-                cache_key = (title, str(canonical.get("date")))
+                # Cache key now includes region so same-titled trainings in
+                # different regions never merge attendees together.
+                cache_key = (title, str(canonical.get("date")), region.id)
                 if cache_key not in training_cache:
                     portfolio, _ = Portfolio.objects.get_or_create(name=canonical.get("portfolio") or "Training")
                     program, _ = Program.objects.get_or_create(portfolio=portfolio, name=canonical.get("program") or title)
+                    try:
+                        duration = float(canonical.get("training_duration") or 0)
+                    except (ValueError, TypeError):
+                        duration = 0
+                    cost_val = leftover.get("cost") or 0
+                    try:
+                        cost_val = float(cost_val)
+                    except (ValueError, TypeError):
+                        cost_val = 0
                     training, _ = TrainingProgram.objects.get_or_create(
                         title=title,
                         date=parse_date(canonical.get("date"), field_label="Date"),
@@ -682,14 +766,19 @@ def import_training_attendance(df, user):
                         defaults=dict(
                             portfolio=portfolio, program=program,
                             trainer_name=canonical.get("trainer_name", ""),
-                            duration_hours=_safe_int(canonical.get("training_duration")) or 0,
+                            duration_hours=duration,
                             target_audience=canonical.get("target_audience", ""),
+                            cost=cost_val,
                             created_by=user,
                         ),
                     )
                     training_cache[cache_key] = training
                 else:
                     training = training_cache[cache_key]
+
+                status = (canonical.get("attendance_status") or "PRESENT").upper()[:10]
+                if status not in valid_attendance:
+                    status = "PRESENT"
 
                 TrainingAttendance.objects.create(
                     training=training,
@@ -698,7 +787,7 @@ def import_training_attendance(df, user):
                     contact_number=canonical.get("contact_number", ""),
                     institution_organization=canonical.get("institution_organization", ""),
                     designation_title=canonical.get("designation_title", ""),
-                    attendance_status=(canonical.get("attendance_status") or "PRESENT").upper()[:10],
+                    attendance_status=status,
                     created_by=user,
                 )
                 training.number_of_participants = training.attendees.count()
@@ -707,7 +796,6 @@ def import_training_attendance(df, user):
         except Exception as exc:
             errors.append({"row": row_num, "error": str(exc)})
     return success, errors
-
 
 def _dispatch_import(form_type, df, user):
     """Routes a dataframe to the correct import_* function for form_type."""

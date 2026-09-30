@@ -1,13 +1,10 @@
 """
 Django settings for the health_dms project.
-
-Reads configuration from environment variables / a .env file (see
-.env.example) so the same codebase runs unmodified on SQLite (local dev)
-or PostgreSQL (staging/production) by flipping DJANGO_DB_ENGINE.
 """
 from pathlib import Path
 import os
 
+from django.contrib.messages import constants as message_constants
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,13 +17,27 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "insecure-dev-key-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "True").strip().lower() in ("1", "true", "yes")
 
+if not DEBUG and (not SECRET_KEY or SECRET_KEY == "insecure-dev-key-change-me"):
+    raise RuntimeError(
+        "DJANGO_SECRET_KEY must be set to a real random value when DJANGO_DEBUG=False."
+    )
+
 _allowed_hosts = os.environ.get("DJANGO_ALLOWED_HOSTS", "*")
 ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(",") if h.strip()]
+if not DEBUG and ALLOWED_HOSTS == ["*"]:
+    raise RuntimeError(
+        "DJANGO_ALLOWED_HOSTS must be set to your real domain(s) when DJANGO_DEBUG=False."
+    )
 
 TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "Asia/Karachi")
 USE_TZ = True
 LANGUAGE_CODE = "en-us"
 USE_I18N = True
+
+# Only set this True if you're behind a proxy (nginx/ALB/etc.) that
+# overwrites X-Forwarded-For itself; otherwise leave False so the audit
+# log can't be spoofed by a client-supplied header. See core/middleware.py.
+TRUST_X_FORWARDED_FOR = os.environ.get("DJANGO_TRUST_XFF", "False").strip().lower() in ("1", "true", "yes")
 
 # ---------------------------------------------------------------------------
 # Applications
@@ -78,7 +89,7 @@ WSGI_APPLICATION = "health_dms.wsgi.application"
 ASGI_APPLICATION = "health_dms.asgi.application"
 
 # ---------------------------------------------------------------------------
-# Database - SQLite by default; set DJANGO_DB_ENGINE=postgres to switch.
+# Database
 # ---------------------------------------------------------------------------
 DB_ENGINE = os.environ.get("DJANGO_DB_ENGINE", "sqlite").strip().lower()
 
@@ -144,5 +155,28 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ---------------------------------------------------------------------------
 # Uploads
 # ---------------------------------------------------------------------------
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB, matches UploadForm limit
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+
+# ---------------------------------------------------------------------------
+# Messages - map Django's default "error" tag to Bootstrap's "danger" class
+# so alert-error (undefined in Bootstrap) never renders unstyled.
+# ---------------------------------------------------------------------------
+MESSAGE_TAGS = {
+    message_constants.ERROR: "danger",
+}
+
+# ---------------------------------------------------------------------------
+# Production hardening (only enforced when DEBUG=False)
+# ---------------------------------------------------------------------------
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SESSION_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_HTTPONLY = True

@@ -1,11 +1,5 @@
 """
 Shared analytics helpers used across every dashboard view.
-
-Centralising this logic keeps the "in-depth analysis" consistent between
-Overview / Activity / Screening / Training / Case dashboards: the same
-age-bucketing, referral-rate, trend, geography-breakdown and
-budget-utilization math is used everywhere rather than re-implemented per
-view.
 """
 import calendar
 import json
@@ -23,7 +17,6 @@ AGE_BUCKETS = [
 ]
 
 def daily_trend(queryset, date_field, date_from, date_to):
-    """Day-by-day counts between date_from and date_to (inclusive)."""
     if not date_from or not date_to:
         return monthly_trend(queryset, date_field=date_field)
     buckets = OrderedDict()
@@ -45,7 +38,6 @@ def daily_trend(queryset, date_field, date_from, date_to):
 
 
 def year_month_trend(queryset, date_field, year):
-    """Jan-Dec counts for a specific year."""
     buckets = OrderedDict((m, 0) for m in range(1, 13))
     field_year = f"{date_field}__year"
     field_month = f"{date_field}__month"
@@ -61,13 +53,6 @@ def year_month_trend(queryset, date_field, year):
 
 
 def trend_for_filters(queryset, filters, date_field="date"):
-    """
-    Adaptive replacement for calling monthly_trend() directly on every
-    dashboard's "Trend" chart:
-      - No year selected      -> last 12 months up to the current month.
-      - Year selected only    -> Jan through Dec of that year.
-      - Year + month selected -> day-by-day across that specific month.
-    """
     if getattr(filters, "year", None) and getattr(filters, "month", None):
         return daily_trend(queryset, date_field, filters.date_from, filters.date_to)
     if getattr(filters, "year", None):
@@ -77,6 +62,7 @@ def trend_for_filters(queryset, filters, date_field="date"):
             return monthly_trend(queryset, date_field=date_field)
         return year_month_trend(queryset, date_field, year)
     return monthly_trend(queryset, date_field=date_field, months_back=12)
+
 
 def age_bucket_label(age):
     if age is None:
@@ -96,13 +82,13 @@ def pct(numerator, denominator):
         return 0.0
     return round((numerator / denominator) * 100, 1)
 
+
 def chart_json(values):
     return (json.dumps(list(values))
             .replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026"))
 
+
 def age_gender_breakdown(participant_qs):
-    """Returns (age_labels, male_series, female_series, other_series) aligned
-    to the fixed AGE_BUCKETS order, for a diverging (two-way) bar chart."""
     counts = defaultdict(lambda: defaultdict(int))
     for age, gender in participant_qs.values_list("age", "gender"):
         counts[age_bucket_label(age)][gender or "O"] += 1
@@ -115,8 +101,6 @@ def age_gender_breakdown(participant_qs):
 
 
 def monthly_trend(queryset, date_field="date", months_back=12):
-    """Returns (labels, values) of record counts per month for the last N
-    months, always including empty months so trend lines don't skip gaps."""
     today = timezone.localdate()
     buckets = OrderedDict()
     year, month = today.year, today.month
@@ -159,7 +143,10 @@ def region_wise(queryset, region_field="region__name", value_field="id", agg="co
 
 
 def local_council_wise(queryset, field="local_council__name", limit=None):
-    rows = queryset.values(field).annotate(v=Count("id")).order_by("-v")
+    # NOTE: grouped by (local_council_id, local_council__name) so two
+    # councils that share a name in different regions (e.g. "Main
+    # Jamatkhana" pattern) are never merged into one bar/row.
+    rows = queryset.values("local_council_id", field).annotate(v=Count("id")).order_by("-v")
     if limit:
         rows = rows[:limit]
     labels = [r[field] or "Unspecified" for r in rows]
@@ -168,7 +155,11 @@ def local_council_wise(queryset, field="local_council__name", limit=None):
 
 
 def jamat_khana_wise(queryset, field="jamat_khana__name", limit=None):
-    rows = queryset.exclude(**{field: None}).values(field).annotate(v=Count("id")).order_by("-v")
+    rows = (
+        queryset.exclude(jamat_khana__isnull=True)
+        .values("jamat_khana_id", field)
+        .annotate(v=Count("id")).order_by("-v")
+    )
     if limit:
         rows = rows[:limit]
     labels = [r[field] or "Unspecified" for r in rows]
@@ -177,21 +168,25 @@ def jamat_khana_wise(queryset, field="jamat_khana__name", limit=None):
 
 
 def portfolio_wise(queryset, portfolio_field="portfolio__name"):
-    rows = queryset.values(portfolio_field).annotate(v=Count("id")).order_by("-v")
+    rows = queryset.values("portfolio_id", portfolio_field).annotate(v=Count("id")).order_by("-v")
     labels = [r[portfolio_field] or "Unspecified" for r in rows]
     values = [r["v"] for r in rows]
     return labels, values
 
 
 def program_wise(queryset, program_field="program__name", limit=12):
-    rows = queryset.values(program_field).annotate(v=Count("id")).order_by("-v")[:limit]
+    rows = queryset.values("program_id", program_field).annotate(v=Count("id")).order_by("-v")[:limit]
     labels = [r[program_field] or "Unspecified" for r in rows]
     values = [r["v"] for r in rows]
     return labels, values
 
 
 def budget_utilization(cost_total, allocated_total):
-    """Returns dict with allocated/utilized/remaining/percent, safe for zero allocation."""
+    """Low-level percent/remaining calculator - caller is responsible for
+    passing cost_total and allocated_total that already cover the SAME
+    fiscal year and the SAME scope. See budget_utilization_for_scope()
+    below, which is the function views should call instead of computing
+    cost_total/allocated_total manually."""
     utilized = cost_total or 0
     allocated = allocated_total or 0
     remaining = max(allocated - utilized, 0)
@@ -201,3 +196,32 @@ def budget_utilization(cost_total, allocated_total):
         "remaining": remaining,
         "percent": pct(utilized, allocated) if allocated else None,
     }
+
+
+def budget_utilization_for_scope(allocations_qs, cost_querysets, fiscal_year=None):
+    """
+    Correct, scope-consistent Budget Utilization:
+      - allocations_qs: an already role-scoped BudgetAllocation queryset
+        (see dashboard.utils.scope_budget_qs).
+      - cost_querysets: list of already role-scoped querysets whose `cost`
+        field should count as spend against that allocation (e.g.
+        [activities_qs, trainings_qs]).
+      - fiscal_year: defaults to the current calendar year. Both sides of
+        the comparison are filtered to this single fiscal year, so a
+        multi-year allocation total is never compared against an
+        all-time cost total (the previous bug).
+    National-level allocations (region=None) are included alongside a
+    regional user's own regional allocations, matching scope_budget_qs,
+    but are only ever summed ONCE (no double counting) because
+    allocations_qs is already deduplicated at the queryset level.
+    """
+    fiscal_year = fiscal_year or timezone.localdate().year
+    allocations_qs = allocations_qs.filter(fiscal_year=fiscal_year)
+    total_allocated = allocations_qs.aggregate(s=Sum("allocated_amount"))["s"] or 0
+
+    total_cost = 0
+    for qs in cost_querysets:
+        date_field = "date" if hasattr(qs.model, "date") else "referral_date"
+        total_cost += qs.filter(**{f"{date_field}__year": fiscal_year}).aggregate(s=Sum("cost"))["s"] or 0
+
+    return budget_utilization(total_cost, total_allocated)

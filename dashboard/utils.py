@@ -28,3 +28,14 @@ def scope_budget_qs(user, queryset):
 
 def month_label(dt):
     return dt.strftime("%b %Y") if dt else "Unknown"
+
+
+def csv_safe(value):
+    """Neutralizes CSV/Excel formula injection: a cell value beginning
+    with =, +, -, @, tab or CR that Excel would otherwise interpret as a
+    formula when the exported CSV is opened. Wrap every string cell
+    written by csv.writer with this before writing."""
+    s = "" if value is None else str(value)
+    if s[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + s
+    return s

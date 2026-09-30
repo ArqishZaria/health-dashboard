@@ -152,7 +152,7 @@ main.container-fluid { max-width: 1360px; margin: 0 auto; padding-top: 1.75rem !
 }
 
 /* ---------- Tables ---------- */
-.table-responsive { border-radius: var(--radius-md); overflow: hidden; }
+.table-responsive { border-radius: var(--radius-md); overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 .table thead { background-color: var(--surface-muted); }
 .table thead th {
   font-size: .74rem; text-transform: uppercase; letter-spacing: .04em;

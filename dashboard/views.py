@@ -25,7 +25,7 @@ from .models import (
     ActivityReport, Participant, TrainingProgram, TrainingAttendance,
     CaseRecord, CaseFollowUp, UploadBatch, BudgetAllocation, SCREENING_MODELS,
 )
-from .utils import scope_qs, scope_budget_qs
+from .utils import scope_qs, scope_budget_qs, csv_safe
 from . import analytics as an
 from .filters import (
     DashboardFilters, region_choices, portfolio_choices, program_choices,
@@ -76,9 +76,10 @@ def _geo_filter_context(request):
 def _overview_data(request):
     """Shared aggregation for the Overview dashboard and its CSV export.
     Filters (period, region, local council, jamatkhana, portfolio) apply to
-    every module's data here; Budget Utilization deliberately ignores
-    filters and is computed purely from the user's role scope (it's a
-    fiscal-year figure, not a date-range one)."""
+    every module's data here; Budget Utilization deliberately ignores the
+    on-screen filters and is computed purely from the user's role scope,
+    for the current fiscal year (see analytics.budget_utilization_for_scope) -
+    it's a fiscal-year figure, not a date-range one."""
     user = request.user
     filters = DashboardFilters(request)
 
@@ -88,6 +89,7 @@ def _overview_data(request):
     activities = filters.apply(activities_base, date_field="date", region_field="region", portfolio_field="portfolio", program_field="program")
     trainings = filters.apply(trainings_base, date_field="date", region_field="region", portfolio_field="portfolio", program_field="program")
     cases = filters.apply(scope_qs(user, CaseRecord.objects.all()), date_field="referral_date", region_field="region")
+    cases = filters.apply_gender(cases)
     participants = scope_qs(user, Participant.objects.all())
     if filters.region_id:
         participants = participants.filter(region_id=filters.region_id)
@@ -206,11 +208,11 @@ def _overview_data(request):
     case_labels, case_values = an.trend_for_filters(cases, filters, date_field="referral_date")
     screening_month_values = [screening_monthly_totals.get(label, 0) for label in act_labels]
 
-    # Budget utilization - scope only, NOT filtered by the dashboard filters
+    # Budget utilization - scope only, NOT filtered by the dashboard filters,
+    # and now correctly compared within a single fiscal year on both sides
+    # (previously: all-fiscal-year allocations vs. all-time cost).
     allocations = scope_budget_qs(user, BudgetAllocation.objects.all())
-    total_allocated = allocations.aggregate(s=Sum("allocated_amount"))["s"] or 0
-    total_cost = (activities_base.aggregate(s=Sum("cost"))["s"] or 0) + (trainings_base.aggregate(s=Sum("cost"))["s"] or 0)
-    budget = an.budget_utilization(total_cost, total_allocated)
+    budget = an.budget_utilization_for_scope(allocations, [activities_base, trainings_base])
 
     cases_closed = cases.filter(current_status="CLOSED").count()
     cases_total = cases.count()
@@ -281,15 +283,15 @@ class ExportOverviewSummaryCSVView(LoginRequiredMixin, View):
         writer = csv.writer(response)
         writer.writerow(["Region", "Activities", "Screenings", "Trainings", "Cases", "Total Records"])
         for r in data["region_combo_rows"]:
-            writer.writerow([r["region"], r["activities"], r["screenings"], r["trainings"], r["cases"], r["total"]])
+            writer.writerow([csv_safe(r["region"]), r["activities"], r["screenings"], r["trainings"], r["cases"], r["total"]])
         writer.writerow([])
         writer.writerow(["Top 5 Local Councils", "Activities", "Screenings", "Trainings", "Cases", "Total Records"])
         for r in data["local_combo_rows"]:
-            writer.writerow([r["local_council"], r["activities"], r["screenings"], r["trainings"], r["cases"], r["total"]])
+            writer.writerow([csv_safe(r["local_council"]), r["activities"], r["screenings"], r["trainings"], r["cases"], r["total"]])
         writer.writerow([])
         writer.writerow(["Top 5 Jamatkhanas", "Activities", "Screenings", "Trainings", "Cases", "Total Records"])
         for r in data["jk_combo_rows"]:
-            writer.writerow([r["jamat_khana"], r["activities"], r["screenings"], r["trainings"], r["cases"], r["total"]])
+            writer.writerow([csv_safe(r["jamat_khana"]), r["activities"], r["screenings"], r["trainings"], r["cases"], r["total"]])
         return response
 
 
@@ -298,6 +300,14 @@ class ExportOverviewPDFView(LoginRequiredMixin, View):
     only surfaces the Print action per dashboard, per the latest design."""
     def get(self, request):
         data = _overview_data(request)
+        extra_labels = []
+        f = data["filters"]
+        if f.region_id:
+            extra_labels.append("Region filtered")
+        if f.portfolio_id:
+            extra_labels.append("Portfolio filtered")
+        if f.gender:
+            extra_labels.append(f"Gender: {dict(GENDER_CHOICES).get(f.gender, f.gender)}")
         kpis = [
             ("Total Beneficiaries", data["total_beneficiaries"]),
             ("Total Activities", data["total_activities"]),
@@ -328,9 +338,9 @@ class ExportOverviewPDFView(LoginRequiredMixin, View):
         ]
         pdf = build_dashboard_pdf(
             "Overview Dashboard Report", "Integrated Health Programs Data Management System",
-            kpis, charts, tables, filters_summary=_filters_summary(data["filters"]),
+            kpis, charts, tables, filters_summary=_filters_summary(data["filters"], extra_labels),
         )
-        return _pdf_response(pdf, f"overview_dashboard_{timezone.now():%Y%m%d}.pdf")
+        return _pdf_response(pdf, f"overview_dashboard_{timezone.localtime():%Y%m%d}.pdf")
 
 
 # ===========================================================================
@@ -362,12 +372,11 @@ def _activity_data(request):
     local_labels, local_values = an.local_council_wise(qs, limit=5)
     jk_labels, jk_values = an.jamat_khana_wise(qs, limit=5)
     month_labels, month_values = an.trend_for_filters(qs, filters, date_field="date")
+
     allocations = scope_budget_qs(
         user, BudgetAllocation.objects.filter(portfolio_id__in=base_qs.values_list("portfolio_id", flat=True).distinct())
     )
-    total_allocated = allocations.aggregate(s=Sum("allocated_amount"))["s"] or 0
-    total_cost_unfiltered = base_qs.aggregate(s=Sum("cost"))["s"] or 0
-    budget = an.budget_utilization(total_cost_unfiltered, total_allocated)
+    budget = an.budget_utilization_for_scope(allocations, [base_qs])
 
     total = qs.count()
     beneficiaries = qs.aggregate(s=Sum("number_of_beneficiaries"))["s"] or 0
@@ -414,6 +423,14 @@ class ActivityReportCreateView(WriteAccessMixin, CreateView):
     template_name = "dashboard/activity_form.html"
     success_url = reverse_lazy("dashboard:activity_list")
 
+    def get_form_kwargs(self):
+        # ActivityReportForm's ScopedGeoFormMixin needs the requesting user
+        # to restrict region/local_council/jamat_khana choices and validate
+        # the geo hierarchy - without this, scope checks never run.
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
@@ -430,6 +447,11 @@ class ActivityReportUpdateView(WriteAccessMixin, UpdateView):
 
     def get_queryset(self):
         return scope_qs(self.request.user, ActivityReport.objects.all())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -460,7 +482,11 @@ class ExportActivitiesCSVView(LoginRequiredMixin, View):
         writer = csv.writer(response)
         writer.writerow(["Date", "Region", "Local Council", "Venue", "Portfolio", "Program", "Activity", "Beneficiaries", "Cost", "Facilitator"])
         for a in data["records"]:
-            writer.writerow([a.date, a.region.name, a.local_council.name, a.venue, a.portfolio.name, a.program.name, a.name_of_activity, a.number_of_beneficiaries, a.cost, a.facilitator_trainer])
+            writer.writerow([
+                a.date, csv_safe(a.region.name), csv_safe(a.local_council.name), csv_safe(a.venue),
+                csv_safe(a.portfolio.name), csv_safe(a.program.name), csv_safe(a.name_of_activity),
+                a.number_of_beneficiaries, a.cost, csv_safe(a.facilitator_trainer),
+            ])
         return response
 
 
@@ -486,7 +512,7 @@ class ExportActivityPDFView(LoginRequiredMixin, View):
             "Activity Reporting Dashboard", "Integrated Health Programs Data Management System",
             kpis, charts, tables, filters_summary=_filters_summary(data["filters"]),
         )
-        return _pdf_response(pdf, f"activity_dashboard_{timezone.now():%Y%m%d}.pdf")
+        return _pdf_response(pdf, f"activity_dashboard_{timezone.localtime():%Y%m%d}.pdf")
 
 
 # ===========================================================================
@@ -534,6 +560,13 @@ def _screening_data(request):
             month_label_order = m_labels
         for label, v in zip(m_labels, m_values):
             monthly_totals[label] += v
+
+    # NOTE: id__in with a large set can hit SQLite's variable-count limit on
+    # very large datasets. If you're seeing "too many SQL variables" here,
+    # switch this to a subquery filter, e.g.:
+    #   Participant.objects.filter(pk__in=Subquery(<union of screening qs.values("participant_id")>))
+    # This is left as-is for now since it matches your existing pattern
+    # elsewhere; flag if you want the subquery rewrite.
     participants = scope_qs(user, Participant.objects.filter(id__in=all_participant_ids))
     age_labels, male_series, female_series, other_series = an.age_gender_breakdown(participants)
 
@@ -667,9 +700,9 @@ class ExportScreeningCSVView(LoginRequiredMixin, View):
         writer.writerow(["Participant", "CNIC", "Gender", "Age", "Region", "Local Council", "Date", "Referred", "Risk Category", "Remarks"])
         for r in qs:
             writer.writerow([
-                r.participant.full_name, r.participant.cnic, r.participant.get_gender_display(),
-                r.participant.age, r.region.name, r.local_council.name, r.screening_date,
-                "Yes" if r.referred else "No", r.get_risk_category_display(), r.remarks,
+                csv_safe(r.participant.full_name), csv_safe(r.participant.cnic), r.participant.get_gender_display(),
+                r.participant.age, csv_safe(r.region.name), csv_safe(r.local_council.name), r.screening_date,
+                "Yes" if r.referred else "No", r.get_risk_category_display(), csv_safe(r.remarks),
             ])
         return response
 
@@ -684,7 +717,7 @@ class ExportScreeningDashboardCSVView(LoginRequiredMixin, View):
         writer = csv.writer(response)
         writer.writerow(["Program", "Total Screened", "Referred", "Referral Rate (%)", "High Risk"])
         for r in data["rows"]:
-            writer.writerow([r["label"], r["count"], r["referred"], r["referral_rate"], r["high_risk"]])
+            writer.writerow([csv_safe(r["label"]), r["count"], r["referred"], r["referral_rate"], r["high_risk"]])
         return response
 
 
@@ -714,7 +747,7 @@ class ExportScreeningPDFView(LoginRequiredMixin, View):
             "Health Screening Programs Dashboard", "Integrated Health Programs Data Management System",
             kpis, charts, tables, filters_summary=_filters_summary(data["filters"]),
         )
-        return _pdf_response(pdf, f"screening_dashboard_{timezone.now():%Y%m%d}.pdf")
+        return _pdf_response(pdf, f"screening_dashboard_{timezone.localtime():%Y%m%d}.pdf")
 
 
 # ===========================================================================
@@ -744,9 +777,7 @@ def _training_data(request):
     allocations = scope_budget_qs(
         user, BudgetAllocation.objects.filter(portfolio_id__in=base_qs.values_list("portfolio_id", flat=True).distinct())
     )
-    total_allocated = allocations.aggregate(s=Sum("allocated_amount"))["s"] or 0
-    total_cost_unfiltered = base_qs.aggregate(s=Sum("cost"))["s"] or 0
-    budget = an.budget_utilization(total_cost_unfiltered, total_allocated)
+    budget = an.budget_utilization_for_scope(allocations, [base_qs])
 
     total_trainings = qs.count()
     total_participants = qs.aggregate(s=Sum("number_of_participants"))["s"] or 0
@@ -808,6 +839,11 @@ class TrainingCreateView(WriteAccessMixin, CreateView):
     template_name = "dashboard/training_form.html"
     success_url = reverse_lazy("dashboard:training_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
@@ -823,6 +859,11 @@ class TrainingUpdateView(WriteAccessMixin, UpdateView):
 
     def get_queryset(self):
         return scope_qs(self.request.user, TrainingProgram.objects.all())
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def get_success_url(self):
         return reverse("dashboard:training_detail", kwargs={"pk": self.object.pk})
@@ -850,7 +891,11 @@ class ExportTrainingCSVView(LoginRequiredMixin, View):
         writer = csv.writer(response)
         writer.writerow(["Date", "Title", "Region", "Portfolio", "Program", "Trainer", "Duration (hrs)", "Participants", "Cost"])
         for t in data["records"]:
-            writer.writerow([t.date, t.title, t.region.name, t.portfolio.name, t.program.name, t.trainer_name, t.duration_hours, t.number_of_participants, t.cost])
+            writer.writerow([
+                t.date, csv_safe(t.title), csv_safe(t.region.name), csv_safe(t.portfolio.name),
+                csv_safe(t.program.name), csv_safe(t.trainer_name), t.duration_hours,
+                t.number_of_participants, t.cost,
+            ])
         return response
 
 
@@ -877,7 +922,7 @@ class ExportTrainingPDFView(LoginRequiredMixin, View):
             "Training & Capacity Building Dashboard", "Integrated Health Programs Data Management System",
             kpis, charts, tables, filters_summary=_filters_summary(data["filters"]),
         )
-        return _pdf_response(pdf, f"training_dashboard_{timezone.now():%Y%m%d}.pdf")
+        return _pdf_response(pdf, f"training_dashboard_{timezone.localtime():%Y%m%d}.pdf")
 
 
 # ===========================================================================
@@ -983,6 +1028,11 @@ class CaseCreateView(WriteAccessMixin, CreateView):
     template_name = "dashboard/case_form.html"
     success_url = reverse_lazy("dashboard:case_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         response = super().form_valid(form)
@@ -1030,6 +1080,11 @@ class CaseUpdateView(WriteAccessMixin, UpdateView):
     def get_queryset(self):
         return scope_qs(self.request.user, CaseRecord.objects.all())
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def get_success_url(self):
         return reverse("dashboard:case_detail", kwargs={"pk": self.object.pk})
 
@@ -1047,7 +1102,12 @@ class ExportCasesCSVView(LoginRequiredMixin, View):
         writer = csv.writer(response)
         writer.writerow(["Case ID", "Participant", "Region", "Referral Date", "Source", "Reason", "Priority", "Status", "Closed"])
         for c in data["records"]:
-            writer.writerow([c.case_id, c.participant.full_name, c.region.name, c.referral_date, c.referral_source, c.reason_for_referral, c.get_priority_level_display(), c.get_current_status_display(), "Yes" if c.closure_status else "No"])
+            writer.writerow([
+                csv_safe(c.case_id), csv_safe(c.participant.full_name), csv_safe(c.region.name),
+                c.referral_date, csv_safe(c.referral_source), csv_safe(c.reason_for_referral),
+                c.get_priority_level_display(), c.get_current_status_display(),
+                "Yes" if c.closure_status else "No",
+            ])
         return response
 
 
@@ -1076,7 +1136,7 @@ class ExportCasePDFView(LoginRequiredMixin, View):
             "Case Management & Referrals Dashboard", "Integrated Health Programs Data Management System",
             kpis, charts, tables, filters_summary=_filters_summary(data["filters"]),
         )
-        return _pdf_response(pdf, f"case_dashboard_{timezone.now():%Y%m%d}.pdf")
+        return _pdf_response(pdf, f"case_dashboard_{timezone.localtime():%Y%m%d}.pdf")
 
 
 # ===========================================================================
@@ -1146,7 +1206,9 @@ class UploadCreateView(RoleRequiredMixin, View):
                 request, AuditLog.Action.IMPORT, "UploadBatch", batch.pk,
                 f"{batch.get_form_type_display()}: {batch.success_count} ok / {batch.error_count} errors",
             )
-            if batch.error_count:
+            if batch.total_rows == 0:
+                messages.warning(request, "The uploaded file had no data rows to import.")
+            elif batch.error_count:
                 messages.warning(request, f"Upload completed with {batch.error_count} error(s). {batch.success_count} row(s) imported successfully.")
             else:
                 messages.success(request, f"Upload completed successfully. {batch.success_count} row(s) imported.")

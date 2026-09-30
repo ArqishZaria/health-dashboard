@@ -28,7 +28,7 @@
           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
             <i class="fa-solid fa-circle-user me-1"></i>{{ user.get_full_name|default:user.username }}
           </a>
-          <ul class="dropdown-menu dropdown-menu-end">
+          <ul class="dropdown-menu dropdown-menu-end" style="max-height: 80vh; overflow-y: auto;">
             <li><a class="dropdown-item" href="{% url 'core:profile' %}">Profile</a></li>
             <li><hr class="dropdown-divider"></li>
             <li><a class="dropdown-item" href="{% url 'dashboard:overview' %}"><i class="fa-solid fa-chart-line me-1"></i>Dashboard</a></li>
